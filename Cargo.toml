@@ -1,0 +1,22 @@
+[package]
+name = "alice-sign"
+version = "0.1.0"
+edition = "2021"
+authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]
+description = "Ed25519 signatures, SHA-256 hashing and a SHA-256 Merkle tree with fixed, tested byte layouts"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ext-sakamoro/ALICE-Sign"
+keywords = ["ed25519", "sha256", "merkle", "signature", "no_std"]
+categories = ["cryptography", "no-std"]
+
+[features]
+default = []
+# KeyPair::generate takes a caller-supplied CSPRNG (rand_core 0.6 traits)
+rand = ["dep:rand_core", "ed25519-dalek/rand_core"]
+
+[dependencies]
+sha2 = { version = "0.10", default-features = false }
+ed25519-dalek = { version = "2.1", default-features = false, features = ["fast", "zeroize"] }
+rand_core = { version = "0.6", default-features = false, optional = true }
+
+[dev-dependencies]

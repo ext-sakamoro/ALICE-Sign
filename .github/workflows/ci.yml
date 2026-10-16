@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    # ci/**: the same checks on a branch before it is fast-forwarded to main
+    branches: [main, 'ci/**']
+  pull_request:
+    branches: [main]
+
+# a newer commit on the same branch stops the older run; on main every commit
+# gets its own group and is not stopped
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Test (default)
+        run: cargo test
+      - name: Test (rand)
+        run: cargo test --features rand
+
+  float-environment:
+    # ALICE-Law G14 on each OS: round-to-nearest-even and no flush-to-zero at
+    # run time in both profiles, the static build configuration guard, and on
+    # ubuntu / macOS the flags cargo really passes to rustc; and the golden
+    # byte layouts (tests/golden.rs) on each OS
+    name: Float environment and goldens (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Float environment (debug and release)
+        run: |
+          scripts/run_tests.sh float_environment=2 -- cargo test --test float_environment
+          scripts/run_tests.sh float_environment=2 -- cargo test --release --test float_environment
+      - name: Golden byte layouts (debug and release)
+        run: |
+          cargo test --test golden
+          cargo test --release --test golden
+      - name: run_tests.sh and build configuration guard (tests, then check)
+        run: |
+          PY=$(command -v python3 || command -v python)
+          "$PY" scripts/test_run_tests.py
+          "$PY" scripts/test_build_config_guard.py
+          "$PY" scripts/build_config_guard.py
+          "$PY" scripts/test_build_flags_check.py
+      - name: Effective rustc flags (default, rand, no default features)
+        if: runner.os != 'Windows'
+        run: |
+          python3 scripts/build_flags_check.py -- cargo check --release --lib
+          python3 scripts/build_flags_check.py -- cargo check --release --lib --features rand
+          python3 scripts/build_flags_check.py -- cargo check --release --lib --no-default-features
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy (default, all targets)
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Clippy (rand, all targets)
+        run: cargo clippy --all-targets --features rand -- -D warnings
+      # the lists in clippy.toml (ALICE-Law G1 / G10) only gate anything if
+      # clippy flags a call to them: a throwaway crate with the same clippy.toml
+      # plants one banned call per row of scripts/clippy_canary_calls.tsv (0
+      # rows fail); --check fails when the rows have drifted from clippy.toml
+      - name: Clippy canary data (generator tests)
+        run: python3 scripts/test_gen_clippy_canary_calls.py
+      - name: Clippy canary data (generated from clippy.toml, no drift)
+        run: python3 scripts/gen_clippy_canary_calls.py --check
+      - name: Clippy canary (tests)
+        run: python3 scripts/test_clippy_canary.py
+      - name: Clippy canary (every planted banned call is flagged)
+        run: python3 scripts/clippy_canary.py
+
+  no_std:
+    name: no_std (bare-metal thumbv7em)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Build (thumbv7em-none-eabihf)
+        run: cargo build --lib --target thumbv7em-none-eabihf
+      - name: Clippy (thumbv7em-none-eabihf)
+        run: cargo clippy --lib --target thumbv7em-none-eabihf -- -D warnings
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+  doc:
+    name: Doc
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Doc (rand)
+        run: cargo doc --no-deps --features rand
+        env:
+          RUSTDOCFLAGS: "-Dwarnings"

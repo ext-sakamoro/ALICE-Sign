@@ -1,0 +1,6 @@
+# Rust toolchain pin. Without it, clippy lints differ between machines.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]
+targets = ["thumbv7em-none-eabihf"]
+profile = "minimal"
