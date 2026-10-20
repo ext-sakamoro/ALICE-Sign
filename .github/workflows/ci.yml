@@ -33,6 +33,8 @@ jobs:
         run: cargo test
       - name: Test (rand)
         run: cargo test --features rand
+      - name: Strict verification (every test of tests/verify_strict.rs ran)
+        run: scripts/run_tests.sh verify_strict=8 -- cargo test --test verify_strict
 
   float-environment:
     # ALICE-Law G14 on each OS: round-to-nearest-even and no flush-to-zero at

@@ -1,10 +1,17 @@
 //! Ed25519 signatures (RFC 8032) through `ed25519-dalek`.
 //!
-//! [`PublicKey::verify`] uses `ed25519-dalek`'s `verify`, not
-//! `verify_strict`: it accepts the signatures RFC 8032 accepts, including
-//! ones under a small-order public key and non-canonical encodings that
-//! `verify_strict` refuses. A protocol that needs signatures to be unique per
-//! message and key must not rely on this function for that.
+//! Two checks:
+//!
+//! - [`PublicKey::verify`] (`ed25519-dalek` `verify`) accepts a signature under
+//!   a small-order public key (which then verifies for any message), one whose
+//!   R is a small-order point, and a small-order key written in a non-canonical
+//!   encoding.
+//! - [`PublicKey::verify_strict`] (`ed25519-dalek` `verify_strict`) refuses all
+//!   three. A protocol where a signature must bind a message to a key holder
+//!   uses this one.
+//!
+//! Both refuse an S that is not reduced modulo the group order and a
+//! non-canonical encoding of R (tests/verify_strict.rs).
 
 use alloc::string::String;
 use core::fmt;
@@ -80,6 +87,21 @@ impl PublicKey {
             return false;
         };
         vk.verify(message, &sig).is_ok()
+    }
+
+    /// `true` when `signature` is a valid signature of `message` under this
+    /// key and neither the key nor R is a small-order point (`ed25519-dalek`
+    /// `verify_strict`, see the module docs). `false` for an invalid key
+    /// encoding as well.
+    #[must_use]
+    pub fn verify_strict(&self, message: &[u8], signature: &Signature) -> bool {
+        let Ok(vk) = VerifyingKey::from_bytes(&self.0) else {
+            return false;
+        };
+        let Ok(sig) = EdSignature::try_from(&signature.0[..]) else {
+            return false;
+        };
+        vk.verify_strict(message, &sig).is_ok()
     }
 
     /// Encode to a lowercase hex string (64 chars).

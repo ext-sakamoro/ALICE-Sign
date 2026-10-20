@@ -82,6 +82,7 @@ cargo test --release --test golden
 step "ci.yml / test: Test (default, rand)"
 cargo test
 cargo test --features rand
+scripts/run_tests.sh verify_strict=8 -- cargo test --test verify_strict
 
 step "ci.yml / doc: Doc (rand)"
 RUSTDOCFLAGS="-Dwarnings" cargo doc --no-deps --features rand
