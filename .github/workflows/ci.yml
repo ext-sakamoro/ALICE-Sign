@@ -35,6 +35,8 @@ jobs:
         run: cargo test --features rand
       - name: Strict verification (every test of tests/verify_strict.rs ran)
         run: scripts/run_tests.sh verify_strict=8 -- cargo test --test verify_strict
+      - name: Leading zeros past 256 bits (every test of tests/leading_zeros.rs ran)
+        run: scripts/run_tests.sh leading_zeros=3 -- cargo test --test leading_zeros
 
   float-environment:
     # ALICE-Law G14 on each OS: round-to-nearest-even and no flush-to-zero at

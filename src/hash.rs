@@ -40,11 +40,13 @@ impl Hash {
 
     /// Return `true` when the first `n` bits are zero.
     ///
-    /// # Panics
-    ///
-    /// When `n` is greater than 256.
+    /// A hash has 256 bits, so for `n > 256` this is `false` (it does not
+    /// panic: `n` may come from outside, for example a difficulty).
     #[must_use]
     pub fn has_leading_zeros(&self, n: u32) -> bool {
+        if n > 256 {
+            return false;
+        }
         let full_bytes = n / 8;
         let remaining_bits = n % 8;
         for &b in &self.0[..full_bytes as usize] {
