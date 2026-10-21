@@ -37,6 +37,10 @@ step "ci.yml / clippy: Clippy (rand, all targets)"
 relint
 cargo clippy --all-targets --features rand -- -D warnings
 
+step "ci.yml / clippy: Clippy (all features, all targets)"
+relint
+cargo clippy --all-targets --all-features -- -D warnings
+
 step "ci.yml / clippy: Clippy canary data (generator tests, generated from clippy.toml, no drift)"
 python3 scripts/test_gen_clippy_canary_calls.py
 python3 scripts/gen_clippy_canary_calls.py --check
@@ -51,6 +55,8 @@ step "ci.yml / no_std: Build and clippy (thumbv7em-none-eabihf)"
 rustup target list --installed | grep -q '^thumbv7em-none-eabihf$' || rustup target add thumbv7em-none-eabihf
 cargo build --lib --target thumbv7em-none-eabihf
 cargo clippy --lib --target thumbv7em-none-eabihf -- -D warnings
+cargo build --lib --target thumbv7em-none-eabihf --features timestamp,vc
+cargo clippy --lib --target thumbv7em-none-eabihf --features timestamp,vc -- -D warnings
 
 step "ci.yml / float-environment: run_tests.sh and build configuration guard (tests, then check)"
 python3 scripts/test_run_tests.py
@@ -85,7 +91,27 @@ cargo test --features rand
 scripts/run_tests.sh verify_strict=8 -- cargo test --test verify_strict
 scripts/run_tests.sh leading_zeros=3 -- cargo test --test leading_zeros
 
-step "ci.yml / doc: Doc (rand)"
+step "ci.yml / doc: Doc (rand, all features)"
 RUSTDOCFLAGS="-Dwarnings" cargo doc --no-deps --features rand
+RUSTDOCFLAGS="-Dwarnings" cargo doc --no-deps --all-features
+
+step "ci.yml / test-public-siblings: Test (lib, integration, doctests)"
+(
+  set -o pipefail
+  MIN_PASSED=36
+  log="$(mktemp)"
+  cargo test --all-features 2>&1 | tee "${log}"
+  passed=$(grep -E '^test result: ' "${log}" | awk '{s += $4} END {print s + 0}')
+  failed=$(grep -E '^test result: ' "${log}" | awk '{s += $6} END {print s + 0}')
+  echo "passed: ${passed} (minimum ${MIN_PASSED}), failed: ${failed}"
+  if [ "${failed}" -ne 0 ] || grep -E '^test result: ' "${log}" | grep -vE '^test result: ok\. ' >/dev/null; then
+    echo "::error::${failed} tests failed"
+    exit 1
+  fi
+  if [ "${passed}" -lt "${MIN_PASSED}" ]; then
+    echo "::error::${passed} tests passed, fewer than ${MIN_PASSED}"
+    exit 1
+  fi
+)
 
 echo; echo "preflight OK"
