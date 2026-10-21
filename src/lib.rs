@@ -12,6 +12,11 @@
 //!   concatenation of two child hashes. See the module docs of [`merkle`] for
 //!   two properties of this layout that a caller must know.
 //!
+//! - `timestamp` (feature `timestamp`, off by default): a signed statement
+//!   that a payload hash was seen at a given time, in the `RFC` 3161 style.
+//! - `vc` (feature `vc`, off by default): a W3C Verifiable Credentials 2.0
+//!   document over a payload hash, signed with Ed25519.
+//!
 //! The crate is `no_std` and needs `alloc` (hex strings, tree levels).
 
 #![no_std]
@@ -24,8 +29,16 @@ pub mod error;
 pub mod hash;
 pub mod merkle;
 pub mod signature;
+#[cfg(feature = "timestamp")]
+pub mod timestamp;
+#[cfg(feature = "vc")]
+pub mod vc;
 
 pub use error::HexError;
 pub use hash::{hash_data, Hash};
 pub use merkle::{MerkleProof, MerkleTree};
 pub use signature::{KeyPair, PublicKey, Signature, PUBLIC_KEY_LENGTH};
+#[cfg(feature = "timestamp")]
+pub use timestamp::{TimeStamp, TimeStampToken};
+#[cfg(feature = "vc")]
+pub use vc::{VerifiableCredential, VerifiableCredentialBuilder};

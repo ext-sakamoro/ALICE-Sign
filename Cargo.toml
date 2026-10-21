@@ -13,6 +13,10 @@ categories = ["cryptography", "no-std"]
 default = []
 # KeyPair::generate takes a caller-supplied CSPRNG (rand_core 0.6 traits)
 rand = ["dep:rand_core", "ed25519-dalek/rand_core"]
+# TimeStamp / TimeStampToken (a signed time statement over a payload hash)
+timestamp = []
+# VerifiableCredential (a W3C VC 2.0 document over a payload hash)
+vc = []
 
 [dependencies]
 sha2 = { version = "0.10", default-features = false }
