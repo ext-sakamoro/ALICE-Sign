@@ -4,6 +4,9 @@ All notable changes to alice-sign are documented here.
 
 ## [Unreleased]
 
+### Added
+- `mac` module: `hmac_sha256(key, message)` / `HmacSha256` (incremental `new` / `update` / `finalize`) / `verify_hmac_sha256(key, message, tag)` / `ct_eq(a, b)` / `HMAC_SHA256_LENGTH` / `HMAC_SHA256_MIN_TAG_LENGTH` HMAC-SHA256 は RFC 2104 の構成を依存済みの `sha2` で組んだもの (新しい依存なし、`no_std`) block の 64 byte を超える鍵は先に hash する `verify_hmac_sha256` は 32 byte の tag か 16 byte 以上の先頭部分を定数時間で比べる (それより短い tag、長い tag、空の tag は拒む) `ct_eq` は長さだけに依存する時間で byte 列を比べる (長さの違いは不一致) 試験 `tests/hmac.rs`: RFC 4231 section 4 の test case 1 から 7 (5 は 128 bit の切り詰め、6 と 7 は block より長い鍵)、`hmac` crate 0.12 (dev-dependency のみ) と 13 通りの鍵長 × 11 通りの message 長で bit 一致、`<label> NUL <payload>` を 3 回の update で与えた tag の一致、update の分け方に依らないこと、tag の 1 byte の変更・長さ・鍵・message の違いを拒むこと CI の Test job で `scripts/run_tests.sh hmac=6` として走り、`Test (public siblings)` の下限を 42 に上げた 変異 10 通り (ipad / opad の定数、鍵を hash する境界、鍵を hash しない、外側の鍵を外す、tag の最短長、長すぎる tag を受ける、`ct_eq` が常に true / 長さを見ない / OR を AND に) はどれも試験が失敗する 追加のみ
+
 ### Fixed
 - `Hash::has_leading_zeros(n)` は `n > 256` で panic せず `false` を返す (256 bit の hash に 256 を超える先頭の 0 は無い) 以前は slice の範囲外で panic し、外から渡る difficulty (alice-blockchain の `ProofOfWork::verify` など) で呼び出し側が落ちた 試験 `tests/leading_zeros.rs` (257 / 264 / 1000 / u32::MAX が false で panic しない、0 / 255 / 256、各 bit の境界) CI の Test job で `scripts/run_tests.sh leading_zeros=3` として走る 挙動の修正のみで API は同じ
 
