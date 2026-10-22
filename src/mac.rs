@@ -102,6 +102,10 @@ pub fn ct_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }
-    let diff = a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y));
-    core::hint::black_box(diff) == 0
+    // black_box on every step keeps the reduction from being turned into an early exit
+    let diff = a
+        .iter()
+        .zip(b)
+        .fold(0u8, |acc, (x, y)| core::hint::black_box(acc | (x ^ y)));
+    diff == 0
 }
