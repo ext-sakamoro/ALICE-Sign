@@ -90,7 +90,7 @@ cargo test
 cargo test --features rand
 scripts/run_tests.sh verify_strict=8 -- cargo test --test verify_strict
 scripts/run_tests.sh leading_zeros=3 -- cargo test --test leading_zeros
-scripts/run_tests.sh hmac=6 -- cargo test --test hmac
+scripts/run_tests.sh hmac=7 -- cargo test --test hmac
 
 step "ci.yml / doc: Doc (rand, all features)"
 RUSTDOCFLAGS="-Dwarnings" cargo doc --no-deps --features rand
@@ -99,7 +99,7 @@ RUSTDOCFLAGS="-Dwarnings" cargo doc --no-deps --all-features
 step "ci.yml / test-public-siblings: Test (lib, integration, doctests)"
 (
   set -o pipefail
-  MIN_PASSED=42
+  MIN_PASSED=43
   log="$(mktemp)"
   cargo test --all-features 2>&1 | tee "${log}"
   passed=$(grep -E '^test result: ' "${log}" | awk '{s += $4} END {print s + 0}')

@@ -6,10 +6,12 @@
 //!   messages of 0 to 300 bytes from a fixed generator: every tag is bit-identical, so
 //!   a value already stored by a caller of that crate is reproduced exactly.
 //! - The incremental form gives the same tag however the message is split.
-//! - `verify_hmac_sha256` and `ct_eq`: equal inputs pass; a changed byte, a different
+//! - `verify_hmac_sha256`, `verify_hmac_sha256_full` and `ct_eq`: equal inputs pass; a changed byte, a different
 //!   length, an empty tag and a tag shorter than 16 bytes are refused.
 
-use alice_sign::mac::{ct_eq, hmac_sha256, verify_hmac_sha256, HmacSha256, HMAC_SHA256_LENGTH};
+use alice_sign::mac::{
+    ct_eq, hmac_sha256, verify_hmac_sha256, verify_hmac_sha256_full, HmacSha256, HMAC_SHA256_LENGTH,
+};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
@@ -182,4 +184,26 @@ fn ct_eq_compares_bytes_and_lengths() {
     assert!(!ct_eq(b"abc", b"ab"));
     assert!(!ct_eq(b"ab", b"abc"));
     assert!(!ct_eq(b"", b"a"));
+}
+
+#[test]
+fn full_verification_needs_all_32_bytes() {
+    let key = b"key";
+    let msg = b"message";
+    let tag = hmac_sha256(key, msg);
+    assert!(verify_hmac_sha256_full(key, msg, &tag));
+    assert!(
+        !verify_hmac_sha256_full(key, msg, &tag[..16]),
+        "a 16-byte prefix is refused"
+    );
+    assert!(!verify_hmac_sha256_full(key, msg, &tag[..31]), "31 bytes");
+    let mut long = tag.to_vec();
+    long.push(0);
+    assert!(!verify_hmac_sha256_full(key, msg, &long), "33 bytes");
+    for i in [0, 15, 16, 31] {
+        let mut bad = tag;
+        bad[i] ^= 0x80;
+        assert!(!verify_hmac_sha256_full(key, msg, &bad), "byte {i} changed");
+    }
+    assert!(!verify_hmac_sha256_full(b"other key", msg, &tag));
 }

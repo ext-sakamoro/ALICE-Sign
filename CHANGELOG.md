@@ -4,6 +4,9 @@ All notable changes to alice-sign are documented here.
 
 ## [Unreleased]
 
+### Added
+- `verify_hmac_sha256_full(key, message, tag)`: 32 byte の tag だけを受ける検証 (先頭部分・長い入力・1 byte の違いを拒む、定数時間) `verify_hmac_sha256` (16 byte 以上の先頭部分も受ける) は tag を切り詰める protocol 用と doc に書いた 全長の tag を期待する呼び出し側が `verify_hmac_sha256` を使うと 16 byte の tag も通るため 試験 `full_verification_needs_all_32_bytes` (CI の `run_tests.sh hmac=7`、下限 42 → 43)
+
 ### Changed
 - `ct_eq`: 比較の途中の値を 1 byte ごとに `core::hint::black_box` に通す (以前は最後の結果だけ) 最適化で途中の不一致での早期 return に変えられないための保険で、結果は同じ
 

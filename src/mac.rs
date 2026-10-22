@@ -7,9 +7,14 @@
 //! implementation is reproduced exactly. A key longer than the 64-byte block is
 //! hashed first; a shorter one is padded with zeros.
 //!
-//! [`verify_hmac_sha256`] compares in constant time and accepts the full
-//! 32-byte tag or a prefix of at least 16 bytes (a truncated tag, as RFC 4231
-//! test case 5 and RFC 2104 section 5 describe).
+//! Two checks, both in constant time:
+//!
+//! - [`verify_hmac_sha256_full`] accepts only the full 32-byte tag. Use it
+//!   unless the protocol truncates its tags.
+//! - [`verify_hmac_sha256`] also accepts a prefix of at least 16 bytes. It is
+//!   for protocols whose tags are truncated (RFC 4231 test case 5, RFC 2104
+//!   section 5): a caller that expects full tags and uses it also accepts a
+//!   16-byte one.
 
 use sha2::{Digest, Sha256};
 
@@ -86,12 +91,23 @@ pub fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; HMAC_SHA256_LENGTH] {
 /// Whether `tag` is the HMAC-SHA256 tag of `message` under `key`, or a prefix
 /// of it of [`HMAC_SHA256_MIN_TAG_LENGTH`] to [`HMAC_SHA256_LENGTH`] bytes.
 /// The comparison takes the same time wherever the bytes differ.
+///
+/// For protocols with truncated tags only; where tags are always full, use
+/// [`verify_hmac_sha256_full`], which refuses a prefix.
 #[must_use]
 pub fn verify_hmac_sha256(key: &[u8], message: &[u8], tag: &[u8]) -> bool {
     if tag.len() < HMAC_SHA256_MIN_TAG_LENGTH || tag.len() > HMAC_SHA256_LENGTH {
         return false;
     }
     ct_eq(&hmac_sha256(key, message)[..tag.len()], tag)
+}
+
+/// Whether `tag` is the full 32-byte HMAC-SHA256 tag of `message` under `key`.
+/// A prefix, a longer input or any changed byte is refused. The comparison
+/// takes the same time wherever the bytes differ.
+#[must_use]
+pub fn verify_hmac_sha256_full(key: &[u8], message: &[u8], tag: &[u8]) -> bool {
+    ct_eq(&hmac_sha256(key, message), tag)
 }
 
 /// Whether `a` and `b` hold the same bytes, in time that depends only on the
