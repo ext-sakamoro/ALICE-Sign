@@ -129,6 +129,47 @@ jobs:
       - name: Clippy (thumbv7em-none-eabihf, timestamp + vc)
         run: cargo clippy --lib --target thumbv7em-none-eabihf --features timestamp,vc -- -D warnings
 
+  wasm32:
+    name: wasm32 (the same tests pass under wasmtime as on the host)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      # the wasm targets come from rust-toolchain.toml (the pinned toolchain cargo uses)
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasmtime
+      - name: Build (wasm32-unknown-unknown, the browser target)
+        run: |
+          cargo build --locked --lib --target wasm32-unknown-unknown
+          cargo build --locked --lib --target wasm32-unknown-unknown --all-features
+      # Every test that passes on the host must also pass on wasm32-wasip1: the passed counts must be equal and
+      # not zero, for the default features and for all features (doctests do not run on a cross target, so both
+      # sides count unit and integration tests only).
+      - name: Tests under wasmtime equal the host's
+        shell: bash
+        env:
+          CARGO_TARGET_WASM32_WASIP1_RUNNER: wasmtime
+        run: |
+          set -euo pipefail
+          count() { sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -E '^test result: ' | awk '{s += $4} END {print s + 0}'; }
+          for features in "" "--all-features"; do
+            cargo test --locked --lib --tests ${features} 2>&1 | tee host.log
+            cargo test --locked --lib --tests --target wasm32-wasip1 ${features} 2>&1 | tee wasm.log
+            if grep -E '^test result: ' wasm.log | grep -vE '^test result: ok\. ' >/dev/null; then
+              echo "::error::a test failed under wasmtime (${features:-default})"
+              exit 1
+            fi
+            host=$(count host.log); wasm=$(count wasm.log)
+            echo "${features:-default}: host ${host} passed, wasm32-wasip1 ${wasm} passed"
+            if [ "${wasm}" -lt 1 ] || [ "${wasm}" -ne "${host}" ]; then
+              echo "::error::wasm32-wasip1 passed ${wasm}, the host ${host} (${features:-default})"
+              exit 1
+            fi
+          done
+
   fmt:
     name: Format
     runs-on: ubuntu-latest

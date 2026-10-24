@@ -58,6 +58,11 @@ cargo clippy --lib --target thumbv7em-none-eabihf -- -D warnings
 cargo build --lib --target thumbv7em-none-eabihf --features timestamp,vc
 cargo clippy --lib --target thumbv7em-none-eabihf --features timestamp,vc -- -D warnings
 
+step "ci.yml / wasm32: Build (wasm32-unknown-unknown, the browser target)"
+rustup target list --installed | grep -q '^wasm32-unknown-unknown$' || rustup target add wasm32-unknown-unknown
+cargo build --locked --lib --target wasm32-unknown-unknown
+cargo build --locked --lib --target wasm32-unknown-unknown --all-features
+
 step "ci.yml / float-environment: run_tests.sh and build configuration guard (tests, then check)"
 python3 scripts/test_run_tests.py
 python3 scripts/test_build_config_guard.py
@@ -84,6 +89,28 @@ scripts/run_tests.sh float_environment=2 -- cargo test --release --test float_en
 step "ci.yml / float-environment: Golden byte layouts (debug and release)"
 cargo test --test golden
 cargo test --release --test golden
+
+step "ci.yml / wasm32: Tests under wasmtime equal the host's"
+if command -v wasmtime >/dev/null 2>&1; then
+  rustup target list --installed | grep -q '^wasm32-wasip1$' || rustup target add wasm32-wasip1
+  (
+    export CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime
+    count() { sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -E '^test result: ' | awk '{s += $4} END {print s + 0}'; }
+    d="$(mktemp -d)"
+    for features in "" "--all-features"; do
+      cargo test --locked --lib --tests ${features} > "${d}/host.log" 2>&1
+      cargo test --locked --lib --tests --target wasm32-wasip1 ${features} > "${d}/wasm.log" 2>&1
+      if grep -E '^test result: ' "${d}/wasm.log" | grep -vE '^test result: ok\. ' >/dev/null; then
+        echo "a test failed under wasmtime (${features:-default})"; exit 1
+      fi
+      host=$(count "${d}/host.log"); wasm=$(count "${d}/wasm.log")
+      echo "${features:-default}: host ${host} passed, wasm32-wasip1 ${wasm} passed"
+      [ "${wasm}" -ge 1 ] && [ "${wasm}" -eq "${host}" ] || { echo "wasm32-wasip1 passed ${wasm}, the host ${host}"; exit 1; }
+    done
+  )
+else
+  echo 'PREFLIGHT-SKIP: ci.yml / wasm32: Tests under wasmtime equal the host'"'"'s: wasmtime not installed' >&2
+fi
 
 step "ci.yml / test: Test (default, rand)"
 cargo test
