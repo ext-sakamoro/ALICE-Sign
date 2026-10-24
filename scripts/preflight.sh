@@ -52,14 +52,14 @@ step "ci.yml / clippy: Clippy canary (every planted banned call is flagged)"
 python3 scripts/clippy_canary.py
 
 step "ci.yml / no_std: Build and clippy (thumbv7em-none-eabihf)"
-rustup target list --installed | grep -q '^thumbv7em-none-eabihf$' || rustup target add thumbv7em-none-eabihf
+grep -q '^thumbv7em-none-eabihf$' <<<"$(rustup target list --installed)" || rustup target add thumbv7em-none-eabihf
 cargo build --lib --target thumbv7em-none-eabihf
 cargo clippy --lib --target thumbv7em-none-eabihf -- -D warnings
 cargo build --lib --target thumbv7em-none-eabihf --features timestamp,vc
 cargo clippy --lib --target thumbv7em-none-eabihf --features timestamp,vc -- -D warnings
 
 step "ci.yml / wasm32: Build (wasm32-unknown-unknown, the browser target)"
-rustup target list --installed | grep -q '^wasm32-unknown-unknown$' || rustup target add wasm32-unknown-unknown
+grep -q '^wasm32-unknown-unknown$' <<<"$(rustup target list --installed)" || rustup target add wasm32-unknown-unknown
 cargo build --locked --lib --target wasm32-unknown-unknown
 cargo build --locked --lib --target wasm32-unknown-unknown --all-features
 
@@ -92,7 +92,7 @@ cargo test --release --test golden
 
 step "ci.yml / wasm32: Tests under wasmtime equal the host's"
 if command -v wasmtime >/dev/null 2>&1; then
-  rustup target list --installed | grep -q '^wasm32-wasip1$' || rustup target add wasm32-wasip1
+  grep -q '^wasm32-wasip1$' <<<"$(rustup target list --installed)" || rustup target add wasm32-wasip1
   (
     export CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime
     count() { sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -E '^test result: ' | awk '{s += $4} END {print s + 0}'; }
