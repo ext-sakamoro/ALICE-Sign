@@ -4,4 +4,9 @@ Ed25519 signatures (RFC 8032, through `ed25519-dalek`), SHA-256 hashing, HMAC-SH
 
 ## License
 
-Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option.
+`LicenseRef-Proprietary` from this version: the source is published for reading only, and
+using, copying, modifying or distributing it needs a written agreement with
+the copyright holder. The text is [LICENSE-Proprietary](LICENSE-Proprietary). Versions
+published before keep the licence they were published under.
+
+Licence enquiries: <contact@extoria.co.jp>
