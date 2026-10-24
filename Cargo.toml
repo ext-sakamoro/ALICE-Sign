@@ -2,7 +2,7 @@
 name = "alice-sign"
 version = "0.1.0"
 edition = "2021"
-authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]
+authors = ["Moroya Sakamoto"]
 description = "Ed25519 signatures, SHA-256 hashing, HMAC-SHA256 and a SHA-256 Merkle tree with fixed, tested byte layouts"
 license = "LicenseRef-Proprietary"
 publish = false
