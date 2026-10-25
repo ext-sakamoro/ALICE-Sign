@@ -57,10 +57,30 @@ pub enum CredError {
     KeyIdMismatch,
     /// The signer's key id is in the revocation set.
     Revoked,
+    /// The credential was issued under another cred semantics identifier than this build's (and
+    /// not one of [`PREVIOUS_SEMANTICS_IDS`]): checked before the signature, so a credential of
+    /// another layout or version is reported as such rather than as a bad signature.
+    SemanticsMismatch {
+        /// The identifier the credential carries.
+        stored: [u8; 32],
+        /// This build's [`SEMANTICS_ID`].
+        expected: [u8; 32],
+    },
 }
 
 impl fmt::Display for CredError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Self::SemanticsMismatch { stored, expected } = self {
+            f.write_str("credential issued under cred semantics ")?;
+            for b in stored {
+                write!(f, "{b:02x}")?;
+            }
+            f.write_str(", this build verifies ")?;
+            for b in expected {
+                write!(f, "{b:02x}")?;
+            }
+            return Ok(());
+        }
         let s = match self {
             Self::NotYetValid => "credential is not yet valid",
             Self::Expired => "credential has expired",
@@ -68,6 +88,7 @@ impl fmt::Display for CredError {
             Self::WrongSigner => "credential is signed by an unexpected key",
             Self::KeyIdMismatch => "credential key id does not match its signer key",
             Self::Revoked => "credential signer key is revoked",
+            Self::SemanticsMismatch { .. } => unreachable!("written above"),
         };
         f.write_str(s)
     }
@@ -174,6 +195,11 @@ pub struct SignedCredential {
     pub signer_public: PublicKey,
     /// The Ed25519 signature over the canonical message.
     pub signature: Signature,
+    /// The cred [`SEMANTICS_ID`] of the build that issued it (ALICE-Law G7): a verifier of
+    /// another identifier refuses it with [`CredError::SemanticsMismatch`] before reading the
+    /// signature. It is not part of the signed message: changing it can only make the
+    /// credential fail to verify, never verify under another layout.
+    pub semantics_id: [u8; 32],
 }
 
 impl SignedCredential {
@@ -188,6 +214,7 @@ impl SignedCredential {
             window,
             signer_public,
             signature,
+            semantics_id: SEMANTICS_ID,
         }
     }
 
@@ -196,6 +223,8 @@ impl SignedCredential {
     ///
     /// # Errors
     ///
+    /// [`CredError::SemanticsMismatch`] if the credential carries another cred semantics
+    /// identifier than this build's (or an earlier one this build still verifies),
     /// [`CredError::WrongSigner`] if `expected` is not the signer,
     /// [`CredError::KeyIdMismatch`] if the key id was altered,
     /// [`CredError::BadSignature`] if the signature does not match,
@@ -207,6 +236,15 @@ impl SignedCredential {
         now: u64,
         revoked: &impl RevokedSet,
     ) -> Result<&Hash, CredError> {
+        if matches!(
+            check_semantics(&self.semantics_id),
+            SemanticsCheck::Mismatch
+        ) {
+            return Err(CredError::SemanticsMismatch {
+                stored: self.semantics_id,
+                expected: SEMANTICS_ID,
+            });
+        }
         if &self.signer_public != expected {
             return Err(CredError::WrongSigner);
         }
@@ -241,8 +279,8 @@ fn signing_message(key_id: &KeyId, payload: &Hash, window: &ValidityWindow) -> V
 
 /// The behavioural goldens [`SEMANTICS_ID`] folds: each `(name, digest)` pins a
 /// SHA-256 of something the crate actually computes — the signature, the signed
-/// message, the window-edge verdicts, the revocation verdict, the small-order
-/// refusal — plus the context and version tags. A change in behaviour moves a
+/// message, the window-edge verdicts, the revocation verdict, the refusal of a
+/// credential of another cred identifier, the small-order refusal — plus the context and version tags. A change in behaviour moves a
 /// digest and therefore the id. `golden_semantics_id` recomputes every digest
 /// from the live code, never from this copied hex.
 pub const CRED_SEMANTICS_PINS: &[(&str, [u8; 32])] = &[
@@ -261,6 +299,10 @@ pub const CRED_SEMANTICS_PINS: &[(&str, [u8; 32])] = &[
     (
         "golden revocation",
         hex32("ceb827ad3d3884fd4d50ae6099d6d50c09a21e72ebd309708e8b69d93df19e55"),
+    ),
+    (
+        "golden semantics_mismatch",
+        hex32("2ecd8a6b7d2845546659ad4cf443533cf921b19dc81fa83934e83821b4dfdcb7"),
     ),
     (
         "golden small_order_refusal",
@@ -288,7 +330,7 @@ use crate::semantics::hex32;
 /// no det-math row. Pinned by `golden_semantics_id`, which recomputes every pin
 /// from the live code.
 pub const SEMANTICS_ID: [u8; 32] =
-    hex32("708c17fc8c4ba8d090698cf590df6248a69ca26959ae9762afc9857025d92574");
+    hex32("62fb12876c3c3c52b9bf31946d01aaa6559406333bf5d31b20cac14a4f93d512");
 
 /// Earlier values of [`SEMANTICS_ID`] whose stamped data this build still reads.
 pub const PREVIOUS_SEMANTICS_IDS: &[[u8; 32]] = &[];
@@ -428,6 +470,7 @@ mod tests {
             window: ValidityWindow::new(1000, 2000),
             signer_public: pk,
             signature: sig,
+            semantics_id: SEMANTICS_ID,
         };
         // plain `verify` would accept this (small-order key, any message);
         // `verify_strict` refuses it, so the result is BadSignature
@@ -531,6 +574,7 @@ mod tests {
             CredError::WrongSigner => 4,
             CredError::KeyIdMismatch => 5,
             CredError::Revoked => 6,
+            CredError::SemanticsMismatch { .. } => 7,
         }
     }
     fn codew(r: Result<(), CredError>) -> u8 {
@@ -549,7 +593,7 @@ mod tests {
 
     // recompute each CRED_SEMANTICS_PINS digest from the LIVE code, so a change
     // in behaviour (signature, layout, a window edge, a verdict) moves a digest
-    fn live_semantics_pins() -> [(&'static str, [u8; 32]); 7] {
+    fn live_semantics_pins() -> [(&'static str, [u8; 32]); 8] {
         let kp = KeyPair::from_seed([0u8; 32]);
         let pk = kp.public();
         let payload = hash_data(b"grant:read#42");
@@ -583,15 +627,26 @@ mod tests {
             window,
             signer_public: so_pk,
             signature: so_sig,
+            semantics_id: SEMANTICS_ID,
         };
         let small_order_refusal =
             hash_data(&[code(so_cred.verify_at(&so_pk, 1500, &NoRevocations))]).0;
+        // the carried identifier: this build's verifies; another one, even with a valid
+        // signature and window, is refused before the signature is read
+        let mut other = cred.clone();
+        other.semantics_id = [0u8; 32];
+        let semantics_mismatch = hash_data(&[
+            code(cred.verify_at(&pk, 1500, &NoRevocations)),
+            code(other.verify_at(&pk, 1500, &NoRevocations)),
+        ])
+        .0;
 
         [
             ("golden signature", signature),
             ("golden signing_message_layout", layout),
             ("golden window_edges", window_edges),
             ("golden revocation", revocation),
+            ("golden semantics_mismatch", semantics_mismatch),
             ("golden small_order_refusal", small_order_refusal),
             ("tag context", hash_data(SIGNING_CONTEXT).0),
             ("tag version", hash_data(&[SIGNING_VERSION]).0),
@@ -617,5 +672,37 @@ mod tests {
     fn check_semantics_classifies_current_and_unknown() {
         assert_eq!(check_semantics(&SEMANTICS_ID), SemanticsCheck::Current);
         assert_eq!(check_semantics(&[0u8; 32]), SemanticsCheck::Mismatch);
+    }
+
+    // ALICE-Law G7: a credential issued under another cred identifier is refused as such,
+    // naming both identifiers, before the signature is read (a valid signature and window
+    // do not let it through, and a corrupted signature still reports the identifier first)
+    #[test]
+    fn a_credential_of_another_semantics_id_is_refused_naming_both() {
+        let kp = signer();
+        let pk = kp.public();
+        let payload = hash_data(b"grant:read#42");
+        let cred = SignedCredential::sign(&kp, payload, ValidityWindow::new(1000, 2000));
+        assert_eq!(cred.semantics_id, SEMANTICS_ID);
+        let mut other = cred.clone();
+        other.semantics_id = [0xab; 32];
+        let want = CredError::SemanticsMismatch {
+            stored: [0xab; 32],
+            expected: SEMANTICS_ID,
+        };
+        assert_eq!(other.verify_at(&pk, 1500, &NoRevocations), Err(want));
+        other.signature = Signature([0u8; 64]);
+        assert_eq!(other.verify_at(&pk, 1500, &NoRevocations), Err(want));
+        let text = alloc::format!("{want}");
+        assert!(text.contains(&"ab".repeat(32)), "{text}");
+        let expected_hex: alloc::string::String = SEMANTICS_ID
+            .iter()
+            .map(|b| alloc::format!("{b:02x}"))
+            .collect();
+        assert!(text.contains(&expected_hex), "{text}");
+        // the identifier is not signed: putting this build's back makes it verify again
+        other.signature = cred.signature;
+        other.semantics_id = SEMANTICS_ID;
+        assert_eq!(other.verify_at(&pk, 1500, &NoRevocations), Ok(&payload));
     }
 }
