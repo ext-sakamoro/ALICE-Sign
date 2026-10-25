@@ -1,0 +1,21 @@
+# scripts/id_move_check.py (ALICE-Law G9): the identifiers whose value may move only with a
+# breaking version, the previous-identifier list that must keep the released value, and the
+# release tags the base is read from (its values come from the published crate)
+package = "alice-sign"
+manifest = "Cargo.toml"
+tags = ["v{version}", "alice-sign-v{version}"]
+# cred (and its identifier) is behind its feature
+features = ["cred"]
+
+[[id]]
+path = "alice_sign::semantics::SIGN_SEMANTICS_ID"
+previous = "alice_sign::semantics::PREVIOUS_SIGN_SEMANTICS_IDS"
+
+[[id]]
+path = "alice_sign::cred::SEMANTICS_ID"
+previous = "alice_sign::cred::PREVIOUS_SEMANTICS_IDS"
+
+[exempt]
+PUBLIC_KEY_LENGTH = "a usize length re-exported from ed25519-dalek, not an identifier (rustdoc gives a re-export no type)"
+SECRET_KEY_LENGTH = "a usize length re-exported from ed25519-dalek, not an identifier (rustdoc gives a re-export no type)"
+SIGNATURE_LENGTH = "a usize length re-exported from ed25519-dalek, not an identifier (rustdoc gives a re-export no type)"

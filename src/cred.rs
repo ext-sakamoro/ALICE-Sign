@@ -239,28 +239,6 @@ fn signing_message(key_id: &KeyId, payload: &Hash, window: &ValidityWindow) -> V
     buf
 }
 
-const fn hexval(c: u8) -> u8 {
-    match c {
-        b'0'..=b'9' => c - b'0',
-        b'a'..=b'f' => c - b'a' + 10,
-        b'A'..=b'F' => c - b'A' + 10,
-        _ => panic!("bad hex digit"),
-    }
-}
-
-/// Decode 64 hex characters to 32 bytes at compile time.
-const fn hex32(s: &str) -> [u8; 32] {
-    let b = s.as_bytes();
-    assert!(b.len() == 64, "expected 64 hex chars");
-    let mut out = [0u8; 32];
-    let mut i = 0;
-    while i < 32 {
-        out[i] = (hexval(b[2 * i]) << 4) | hexval(b[2 * i + 1]);
-        i += 1;
-    }
-    out
-}
-
 /// The behavioural goldens [`SEMANTICS_ID`] folds: each `(name, digest)` pins a
 /// SHA-256 of something the crate actually computes — the signature, the signed
 /// message, the window-edge verdicts, the revocation verdict, the small-order
@@ -298,26 +276,8 @@ pub const CRED_SEMANTICS_PINS: &[(&str, [u8; 32])] = &[
     ),
 ];
 
-/// Fold a `(name, digest)` pins table the way the ecosystem's Law-bearing types
-/// do, so the Law matrix recomputes a crate's id the same way: reject an empty,
-/// repeated or non-ASCII name, sort by name, then SHA-256 over
-/// `u32-BE(name length) || name || digest` for each entry in sorted order.
-pub fn fold_semantics_pins(pins: &[(&str, [u8; 32])]) -> [u8; 32] {
-    let mut sorted: Vec<&(&str, [u8; 32])> = pins.iter().collect();
-    sorted.sort_by(|a, b| a.0.cmp(b.0));
-    let mut buf = Vec::new();
-    let mut prev: Option<&str> = None;
-    for (name, digest) in sorted {
-        assert!(!name.is_empty(), "empty pin name");
-        assert!(name.is_ascii(), "non-ASCII pin name: {name}");
-        assert!(prev != Some(name), "repeated pin name: {name}");
-        prev = Some(name);
-        buf.extend_from_slice(&(name.len() as u32).to_be_bytes());
-        buf.extend_from_slice(name.as_bytes());
-        buf.extend_from_slice(digest);
-    }
-    hash_data(&buf).0
-}
+pub use crate::semantics::fold_semantics_pins;
+use crate::semantics::hex32;
 
 /// A content id for the cred semantics: the fold of [`CRED_SEMANTICS_PINS`] over
 /// its behavioural goldens and the context and version tags. Two builds with

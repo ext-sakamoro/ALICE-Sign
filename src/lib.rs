@@ -33,6 +33,7 @@ pub mod error;
 pub mod hash;
 pub mod mac;
 pub mod merkle;
+pub mod semantics;
 pub mod signature;
 #[cfg(feature = "timestamp")]
 pub mod timestamp;

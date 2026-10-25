@@ -66,6 +66,12 @@ jobs:
         run: |
           cargo test --test golden
           cargo test --release --test golden
+      # ALICE-Law G4 / G5 / G6: SIGN_SEMANTICS_ID's pins recomputed from the live code, in the
+      # debug and the release profile on each OS of the matrix (x86_64 and aarch64)
+      - name: Semantics identifier (debug and release, every pin recomputed)
+        run: |
+          scripts/run_tests.sh sign_semantics_id=4 -- cargo test --test sign_semantics_id
+          scripts/run_tests.sh sign_semantics_id=4 -- cargo test --release --test sign_semantics_id
       - name: run_tests.sh and build configuration guard (tests, then check)
         run: |
           PY=$(command -v python3 || command -v python)
@@ -101,6 +107,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          # the history and release tags: scripts/id_move_check.py compares with the newest one
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -123,6 +132,14 @@ jobs:
         run: python3 scripts/test_clippy_canary.py
       - name: Clippy canary (every planted banned call is flagged)
         run: python3 scripts/clippy_canary.py
+      # ALICE-Law G9: an identifier (SIGN_SEMANTICS_ID, cred's SEMANTICS_ID) moves only with a
+      # breaking version or a **Breaking:** entry of [Unreleased] naming both values, and the
+      # released value is read from the published crate at the newest release tag
+      # (scripts/id_move_check.py, shared with the other ALICE crates)
+      - name: Identifier moves (tests)
+        run: python3 scripts/test_id_move_check.py
+      - name: Identifier moves (against the release compared with)
+        run: python3 scripts/id_move_check.py
 
   no_std:
     name: no_std (bare-metal thumbv7em)

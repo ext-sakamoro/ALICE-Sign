@@ -51,6 +51,10 @@ python3 scripts/test_clippy_canary.py
 step "ci.yml / clippy: Clippy canary (every planted banned call is flagged)"
 python3 scripts/clippy_canary.py
 
+step "ci.yml / clippy: Identifier moves (tests, then against the release compared with)"
+python3 scripts/test_id_move_check.py
+python3 scripts/id_move_check.py
+
 step "ci.yml / no_std: Build and clippy (thumbv7em-none-eabihf)"
 grep -q '^thumbv7em-none-eabihf$' <<<"$(rustup target list --installed)" || rustup target add thumbv7em-none-eabihf
 cargo build --lib --target thumbv7em-none-eabihf
@@ -100,6 +104,10 @@ scripts/run_tests.sh float_environment=2 -- cargo test --release --test float_en
 step "ci.yml / float-environment: Golden byte layouts (debug and release)"
 cargo test --test golden
 cargo test --release --test golden
+
+step "ci.yml / float-environment: Semantics identifier (debug and release, every pin recomputed)"
+scripts/run_tests.sh sign_semantics_id=4 -- cargo test --test sign_semantics_id
+scripts/run_tests.sh sign_semantics_id=4 -- cargo test --release --test sign_semantics_id
 
 step "ci.yml / wasm32: Tests under wasmtime equal the host's"
 if command -v wasmtime >/dev/null 2>&1; then
