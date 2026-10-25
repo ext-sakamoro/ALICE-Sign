@@ -6,6 +6,7 @@ All notable changes to alice-sign are documented here.
 
 ### Changed
 
+- CI: 他の ALICE の crate と共有する file (`scripts/run_tests.sh`、`scripts/test_run_tests.py`、`scripts/test_public_text.py`、`scripts/gen_clippy_canary_calls.py` と試験) を ALICE-Law の表の bytes にした (挙動の変更なし、canary の行は同じ)
 - Licence: from `MIT OR Apache-2.0` to `LicenseRef-Proprietary` from this version (the source stays published for reading; using it needs a written agreement); published versions keep their licence
 
 ### Added

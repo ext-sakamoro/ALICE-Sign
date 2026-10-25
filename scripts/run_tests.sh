@@ -5,7 +5,9 @@
 #   - the command itself succeeds,
 #   - at least one test passed in total, and
 #   - every named integration test binary ran and passed at least its minimum
-#     number of tests (1 when no minimum is given).
+#     number of tests (1 when no minimum is given). The name `lib` is the
+#     library's unit tests (the `Running unittests src/lib.rs` section), not an
+#     integration file tests/lib.rs.
 # A feature or target mismatch otherwise turns a test step into a silent
 # no-op that still reports success.
 #
@@ -53,21 +55,46 @@ trap 'rm -f "$log"' EXIT
 
 "$@" 2>&1 | tee "$log"
 
+# A `test result:` line belongs to the section header above it: cargo prints
+# `Running <target>` before each test binary and `Doc-tests <crate>` before
+# the doctests of a crate. The doctest section is its own key — without the
+# `Doc-tests` header its count was added to whichever binary ran last.
+# Headers are matched only after cargo's indent at the start of a line (cargo
+# right-aligns the verb), so a test printing "Running ..." at the start of a
+# line or in the middle of one does not move the count to another binary.
+# A test that prints a line shaped exactly like cargo's (indent, then
+# `Running tests/<name>.rs`) between its header and its result still does: the
+# text alone cannot tell the two apart.
 total=0
+doctests=0
 required_passed=()
 for i in "${!required[@]}"; do required_passed[$i]=0; done
 current=""
 while IFS= read -r line; do
+  if [[ "$line" =~ ^[[:space:]]+Running[[:space:]] ]]; then
+    current="$line"
+    continue
+  fi
+  if [[ "$line" =~ ^[[:space:]]+Doc-tests[[:space:]] ]]; then
+    current="doctests"
+    continue
+  fi
   case "$line" in
-    *"Running "*)
-      current="$line"
-      ;;
     "test result: "*)
       n=$(printf '%s\n' "$line" | sed -E 's/.* ([0-9]+) passed.*/\1/')
       total=$((total + n))
+      if [[ "$current" == "doctests" ]]; then
+        doctests=$((doctests + n))
+        continue
+      fi
       for i in "${!required[@]}"; do
         name="${required[$i]}"
-        if [[ "$current" == *"tests/${name}.rs"* || "$current" == *"tests\\${name}.rs"* ]]; then
+        if [[ "$name" == "lib" ]]; then
+          # the library's unit tests: cargo's `Running unittests src/lib.rs` section
+          if [[ "$current" == *"unittests src/lib.rs"* || "$current" == *"unittests src\\lib.rs"* ]]; then
+            required_passed[$i]=$((required_passed[$i] + n))
+          fi
+        elif [[ "$current" == *"tests/${name}.rs"* || "$current" == *"tests\\${name}.rs"* ]]; then
           required_passed[$i]=$((required_passed[$i] + n))
         fi
       done
@@ -81,7 +108,7 @@ summary=""
 for i in "${!required[@]}"; do
   summary="${summary} ${required_passed[$i]} in ${required[$i]},"
 done
-echo "run_tests: ${total} tests passed in total,${summary%,}"
+echo "run_tests: ${total} tests passed in total, ${doctests} doctests,${summary%,}"
 if [[ "$total" -eq 0 ]]; then
   echo "run_tests: no test ran" >&2
   exit 1
