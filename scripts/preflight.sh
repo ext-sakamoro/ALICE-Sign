@@ -126,7 +126,7 @@ RUSTDOCFLAGS="-Dwarnings" cargo doc --no-deps --all-features
 step "ci.yml / test-public-siblings: Test (lib, integration, doctests)"
 (
   set -o pipefail
-  MIN_PASSED=42
+  MIN_PASSED=58
   log="$(mktemp)"
   cargo test --all-features 2>&1 | tee "${log}"
   passed=$(grep -E '^test result: ' "${log}" | awk '{s += $4} END {print s + 0}')

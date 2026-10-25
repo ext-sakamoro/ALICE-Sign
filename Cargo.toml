@@ -18,6 +18,8 @@ rand = ["dep:rand_core", "ed25519-dalek/rand_core"]
 timestamp = []
 # VerifiableCredential (a W3C VC 2.0 document over a payload hash)
 vc = []
+# SignedCredential (a payload hash bound to a validity window, verified at a time)
+cred = []
 
 [dependencies]
 sha2 = { version = "0.10", default-features = false }
