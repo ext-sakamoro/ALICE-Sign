@@ -5,8 +5,7 @@
 #
 # The crate holds generic primitives only (Ed25519 signatures, SHA-256, a
 # SHA-256 Merkle tree) and computes with integers and byte strings. The gates
-# set up with the first commit are G1, G10, G12 and G14; the others were not
-# measured and are `unverified`.
+# are measured one by one; G11 waits on the shared-files table listing this crate.
 
 [G1]
 status = "pass"
@@ -22,52 +21,90 @@ note = "the crate has no floating-point arithmetic; the list keeps a call from c
 reference_repo = "ALICE-DB"
 
 [G2]
-status = "unverified"
+status = "pass"
+evidence = [
+    "clippy.toml bans f32 / f64 max, min and clamp (`clippy.toml#path = \"f32::max\"`, `clippy.toml#path = \"f64::clamp\"` and the four others), with scripts/clippy_canary.py planting each (66 planted, the six G2 rows among them) in the clippy job (`.github/workflows/ci.yml#name: Clippy canary (every planted banned call is flagged)`) and preflight",
+    "src/ names no f32 or f64 at all (grep -rnE '\\bf(32|64)\\b' src/ finds nothing), so there is no scalar or SIMD float max / min site: no Law helper, no raw_* exception and no tie test are needed, and a new site meets the ban first",
+]
+mutant = "measured 2026-10-25, reverted: deleting the f32::max entry from clippy.toml makes scripts/clippy_canary.py exit 1 (its planted call is no longer flagged); `pub fn probe(a: f64, b: f64) -> f64 { a.max(b) }` in src/hash.rs fails the default clippy step (disallowed method f64::max)"
 since = ""
-note = "not measured at creation; the crate has no floating-point arithmetic"
-reference_repo = ""
+note = "the crate has no floating-point arithmetic; the ban keeps a float max / min / clamp from coming in unnoticed"
+tie_tests = []
+reference_repo = "ALICE-Crypto"
 
 [G3]
-status = "unverified"
+status = "pass"
+evidence = [
+    "tools/no-outer-fneg-of-fma (syntax-tree check, byte-identical to ALICE-LOL's) and tools/fneg-fma-ir-probes, with scripts/no-outer-fneg-of-fma-allowlist.toml (`scripts/no-outer-fneg-of-fma-allowlist.toml#expected-fma-calls = 0`): its own tests, then the check over src/ tests/ examples/ benches/, in the float-environment job on every OS (`.github/workflows/ci.yml#name: No negated fma result (syntax tree, tests then check)`) and preflight",
+    "scripts/fneg_fma_ir_check.py and scripts/test_fneg_fma_ir_check.py (the release LLVM IR, x86_64 and aarch64 runners) in .github/workflows/g3-ir.yml (`.github/workflows/g3-ir.yml#name: No negated fma result in alice-sign's release IR`), and preflight on the host target",
+]
+mutant = "measured 2026-10-25: the syntax-tree check reports 0 fma calls in 14 files and the IR check 0 fma calls in 431 functions of alice-sign (aarch64-apple-darwin); raising expected-fma-calls to 1 makes the syntax-tree check fail, and the IR check's own tests run each of the 47 shared probes against its expected verdict"
 since = ""
-note = "not measured at creation"
-reference_repo = ""
+note = "the crate has no fma call; both checks fail on the first one by count and on a negated one by shape"
+reference_repo = "ALICE-Crypto"
 
 [G4]
-status = "unverified"
+status = "pass"
+evidence = [
+    "tests/sign_semantics_id.rs: the five pins of SIGN_SEMANTICS_PINS recomputed from the live code (Ed25519 keys and signatures, SHA-256, HMAC-SHA256, Merkle roots, verify / verify_strict verdicts) in the debug profile on ubuntu, macOS and Windows (`.github/workflows/ci.yml#name: Semantics identifier (debug and release, every pin recomputed)`), run_tests.sh requiring its 4 tests",
+    "tests/golden.rs (recorded public keys, signatures, SHA-256 vectors and Merkle roots of the code the crate was moved from) in both profiles on every OS (`.github/workflows/ci.yml#name: Golden byte layouts (debug and release)`)",
+]
+mutant = "measured 2026-10-25, each reverted: verify_strict falling back to verify, an HMAC inner pad of 0x37 and an unsorted fold each turn tests/sign_semantics_id.rs red"
 since = ""
-note = "not measured at creation"
-reference_repo = ""
+note = "the crate computes with integers and byte strings only; the pinned bytes are the same on every target"
+reference_repo = "ALICE-Crypto"
 
 [G5]
-status = "unverified"
+status = "pass"
+evidence = [
+    "tests/sign_semantics_id.rs and tests/golden.rs in the release profile on ubuntu (x86_64), macOS (aarch64) and Windows (x86_64): `.github/workflows/ci.yml#scripts/run_tests.sh sign_semantics_id=4 -- cargo test --release --test sign_semantics_id` and the release half of the golden step; scripts/preflight.sh runs both profiles",
+]
+mutant = "as G4: the release run recomputes the same pins, so a mutant that moves a pin is red in both profiles"
 since = ""
-note = "not measured at creation"
-reference_repo = ""
+note = ""
+reference_repo = "ALICE-Crypto"
 
 [G6]
-status = "unverified"
+status = "pass"
+evidence = [
+    "`src/semantics.rs#pub const SIGN_SEMANTICS_ID` (4bab96c9...ff11), the fold of `src/semantics.rs#pub const SIGN_SEMANTICS_PINS` by the shared procedure (`src/semantics.rs#pub fn fold_semantics_pins`), with PREVIOUS_SIGN_SEMANTICS_IDS empty; cred keeps an identifier of its own (`src/cred.rs#pub const SEMANTICS_ID`)",
+    "tests/sign_semantics_id.rs: every pin recomputed from the live code, the fold equal to the identifier, the doc hex equal to the constant, and the fold independent of the table's order",
+]
+mutant = "measured 2026-10-25, each reverted: verify_strict falling back to verify, an HMAC inner pad 0x37, a listed previous identifier, a little-endian name length in the fold and an unsorted fold each turn tests/sign_semantics_id.rs red; four of the five pins were recomputed independently (PyNaCl, hashlib, hmac) and match"
 since = ""
-note = "not measured at creation"
-reference_repo = ""
+note = "no upstream identifier is folded: the crate depends on no other Law-bearing crate"
+reference_repo = "ALICE-Crypto"
 
 [G7]
-status = "unverified"
+status = "pass"
+evidence = [
+    "a SignedCredential carries the cred identifier of the build that issued it (`src/cred.rs#pub semantics_id: [u8; 32]`); verify_at refuses another one first with `src/cred.rs#return Err(CredError::SemanticsMismatch {` naming both, before the signature is read, tested by `src/cred.rs#fn a_credential_of_another_semantics_id_is_refused_naming_both` and pinned by cred's golden semantics_mismatch",
+    "scripts/api_boundary.py (shared) with scripts/api_boundary.toml: every public item carrying bytes, text or a reader with every feature (29: 25 fn, 4 re-exports) has a decision; the others are the standards' forms (Ed25519, SHA-256, HMAC, W3C VC) or fixed layouts read back by the same build; clippy job (`.github/workflows/ci.yml#name: Public boundary (every item decided)`) and preflight, with scripts/test_api_boundary.py",
+]
+mutant = "measured 2026-10-25, each reverted: removing the identifier check from verify_at, naming the stored value as expected, and SignedCredential::sign stamping no identifier each turn the cred tests red"
 since = ""
-note = "not measured at creation"
-reference_repo = ""
+note = ""
+reference_repo = "ALICE-Crypto"
 
 [G8]
-status = "unverified"
+status = "n/a"
+evidence = [
+    "scripts/api_boundary.py with scripts/api_boundary.toml: no public item writes or reads a durable form of a Law-bearing value of this crate's own; the byte and text forms are the standards' (Ed25519 per RFC 8032, SHA-256 per FIPS 180-4, HMAC per RFC 2104, the W3C VC 2.0 JSON document) or the 44 signed bytes of a TimeStamp, read back only by TimeStampToken::verify of the same build; a SignedCredential has no serialisation here and carries its identifier (G7)",
+]
+mutant = "measured 2026-10-25, reverted: `pub fn probe_bytes(x: &[u8]) -> alloc::vec::Vec<u8>` added to src/hash.rs makes scripts/api_boundary.py fail with `api_boundary: fn::hash::probe_bytes: not in scripts/api_boundary.toml`"
 since = ""
-note = "not measured at creation"
-reference_repo = ""
+note = "no durable form of a Law-bearing value of this crate's own is written or read: the byte and text forms are the standards' or a TimeStamp's fixed layout read back by the same build, and the scanner refuses a new byte-carrying item until it has a decision"
+reference_repo = "ALICE-Crypto"
 
 [G9]
-status = "unverified"
+status = "pass"
+evidence = [
+    "scripts/id_move_check.py (shared) with scripts/id_move.toml (SIGN_SEMANTICS_ID and cred's SEMANTICS_ID, `scripts/id_move.toml#path = \"alice_sign::semantics::SIGN_SEMANTICS_ID\"`) and scripts/release_baseline.py: an identifier moves only with a breaking version or an [Unreleased] Breaking entry naming both values, and every [u8; 32] item is an identifier or exempt; clippy job with the full history (`.github/workflows/ci.yml#name: Identifier moves (against the release compared with)`) and preflight, with scripts/test_id_move_check.py",
+]
+mutant = "today: no published base (the crate has no release), both identifiers new, 0 problems; the three re-exported lengths are exempt with a reason, and removing an exemption makes the completeness check fail"
 since = ""
-note = "not measured at creation"
-reference_repo = ""
+note = ""
+reference_repo = "ALICE-Crypto"
 
 [G10]
 status = "pass"
@@ -82,22 +119,34 @@ note = ""
 reference_repo = "ALICE-DB"
 
 [G11]
-status = "unverified"
+status = "fail-known"
+evidence = [
+    "the shared files this crate carries (scripts/run_tests.sh, scripts/clippy_canary.py, scripts/api_boundary.py, scripts/id_move_check.py, tools/no-outer-fneg-of-fma and the others) hold their ALICE-Law table bytes at 0a5de013: measured with that revision's checker on the committed tree, 75 copies with an entry's bytes",
+]
 since = ""
-note = "not measured at creation; the G1 / G10 canary and the build configuration guard fail when they compared nothing"
+note = "the shared files this crate carries hold their table bytes; fail-known until the table lists ALICE-Sign on their rows and exempts its build_config_allowlist.toml, after which scripts/shared_files.sh and its pin join CI and preflight"
 reference_repo = ""
 
 [G12]
-status = "unverified"
+status = "pass"
+evidence = [
+    ".github/workflows/public-text.yml, scripts/public_text.sh (ALICE-Law's checker at the revision in .github/public-text-pin, verified by SHA-256) and scripts/test_public_text.py (the table's bytes); preflight (`scripts/preflight.sh#step \"public-text.yml: Public text (ALICE-Law checker at the pin)\"`)",
+]
+mutant = "a refused internal word added to a tracked document makes the public-text step fail"
 since = ""
-note = "scripts/public_text.sh (ALICE-Law's checker at the revision in .github/public-text-pin, verified by SHA-256) runs in .github/workflows/public-text.yml and scripts/preflight.sh; the status is set from its first CI run"
+note = ""
 reference_repo = "ALICE-Crypto"
 
 [G13]
-status = "unverified"
+status = "pass"
+evidence = [
+    "clippy.toml bans std::collections::HashMap and HashSet (`clippy.toml#path = \"std::collections::HashMap\"`, `clippy.toml#path = \"std::collections::HashSet\"`) with RandomState, each planted by scripts/clippy_canary.py",
+    "src/ has no HashMap, HashSet, std::thread, rayon or par_iter (grep), so no output depends on hash order or scheduling",
+]
+mutant = "measured 2026-10-25: removing the HashMap entry from clippy.toml makes scripts/clippy_canary.py exit 1"
 since = ""
-note = "not measured at creation; the crate has no HashMap or HashSet"
-reference_repo = ""
+note = ""
+reference_repo = "ALICE-Crypto"
 
 [G14]
 status = "pass"

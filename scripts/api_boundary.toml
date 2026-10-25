@@ -1,0 +1,37 @@
+# scripts/api_boundary.py (ALICE-Law G7 / G8): the boundary of the public API, enumerated
+# from rustdoc JSON with every feature, and the decision for each item. The crate's byte
+# and text forms are the standards' (Ed25519, SHA-256, HMAC, W3C VC) or its own fixed layouts
+# read back by the same build; the one Law-bearing value of its own that crosses builds, a
+# SignedCredential, carries cred's identifier and verify_at refuses another one first.
+features = "rand,timestamp,vc,cred"
+
+[boundary]
+"fn::Hash::from_bytes" = "local: SHA-256 as FIPS 180-4 defines it; the digest's meaning is fixed by the standard, not by this crate's arithmetic, and no Law-bearing value of another producer crosses it"
+"fn::Hash::from_hex" = "local: lower-case hex of the fixed-width bytes (a text form of the same bytes); decoding refuses any other length or digit, and no Law-bearing value of another producer crosses it"
+"fn::Hash::to_hex" = "local: lower-case hex of the fixed-width bytes (a text form of the same bytes); decoding refuses any other length or digit, and no Law-bearing value of another producer crosses it"
+"fn::HmacSha256::finalize" = "local: HMAC-SHA256 as RFC 2104 / FIPS 198-1 define it; the tag's meaning is fixed by the standard, and no Law-bearing value of another producer crosses it"
+"fn::HmacSha256::new" = "local: HMAC-SHA256 as RFC 2104 / FIPS 198-1 define it; the tag's meaning is fixed by the standard, and no Law-bearing value of another producer crosses it"
+"fn::HmacSha256::update" = "local: HMAC-SHA256 as RFC 2104 / FIPS 198-1 define it; the tag's meaning is fixed by the standard, and no Law-bearing value of another producer crosses it"
+"fn::KeyPair::from_seed" = "local: Ed25519 as RFC 8032 defines it (keys, signatures and verification); the meaning of the bytes is fixed by the standard, not by this crate's arithmetic, and no Law-bearing value of another producer crosses it"
+"fn::KeyPair::sign" = "local: Ed25519 as RFC 8032 defines it (keys, signatures and verification); the meaning of the bytes is fixed by the standard, not by this crate's arithmetic, and no Law-bearing value of another producer crosses it"
+"fn::PublicKey::from_hex" = "local: lower-case hex of the fixed-width bytes (a text form of the same bytes); decoding refuses any other length or digit, and no Law-bearing value of another producer crosses it"
+"fn::PublicKey::to_hex" = "local: lower-case hex of the fixed-width bytes (a text form of the same bytes); decoding refuses any other length or digit, and no Law-bearing value of another producer crosses it"
+"fn::PublicKey::verify" = "local: Ed25519 as RFC 8032 defines it (keys, signatures and verification); the meaning of the bytes is fixed by the standard, not by this crate's arithmetic, and no Law-bearing value of another producer crosses it"
+"fn::PublicKey::verify_strict" = "local: Ed25519 as RFC 8032 defines it (keys, signatures and verification); the meaning of the bytes is fixed by the standard, not by this crate's arithmetic, and no Law-bearing value of another producer crosses it"
+"fn::Signature::from_hex" = "local: lower-case hex of the fixed-width bytes (a text form of the same bytes); decoding refuses any other length or digit, and no Law-bearing value of another producer crosses it"
+"fn::Signature::to_hex" = "local: lower-case hex of the fixed-width bytes (a text form of the same bytes); decoding refuses any other length or digit, and no Law-bearing value of another producer crosses it"
+"fn::TimeStamp::signing_bytes" = "local: the 44 signed bytes of an RFC 3161-style statement (payload hash, seconds, nanoseconds); a fixed layout of this crate's own, read back only by TimeStampToken::verify of the same build, with no Law-bearing value of another producer"
+"fn::VerifiableCredential::canonical_bytes" = "local: the length-prefixed canonical bytes of a W3C Verifiable Credentials 2.0 document, whose meaning the W3C data model and its @context fix; no Law-bearing value of another producer crosses it"
+"fn::VerifiableCredential::to_json" = "local: the W3C Verifiable Credentials 2.0 JSON document (its meaning is fixed by the W3C data model and the @context it names); no Law-bearing value of another producer crosses it"
+"fn::VerifiableCredentialBuilder::new" = "local: the issuer and subject identifiers of a W3C VC document, taken as text; no Law-bearing value crosses it"
+"fn::cred::check_semantics" = "local: classifies a 32-byte cred identifier against this build's SEMANTICS_ID and PREVIOUS_SEMANTICS_IDS; SignedCredential::verify_at calls it first and refuses another identifier with CredError::SemanticsMismatch naming both (src/cred.rs::a_credential_of_another_semantics_id_is_refused_naming_both)"
+"fn::hash::hash_data" = "local: SHA-256 as FIPS 180-4 defines it; the digest's meaning is fixed by the standard, not by this crate's arithmetic, and no Law-bearing value of another producer crosses it"
+"fn::mac::ct_eq" = "local: a constant-time equality of two byte strings; it computes no Law-bearing value"
+"fn::mac::hmac_sha256" = "local: HMAC-SHA256 as RFC 2104 / FIPS 198-1 define it; the tag's meaning is fixed by the standard, and no Law-bearing value of another producer crosses it"
+"fn::mac::verify_hmac_sha256" = "local: HMAC-SHA256 as RFC 2104 / FIPS 198-1 define it; the tag's meaning is fixed by the standard, and no Law-bearing value of another producer crosses it"
+"fn::semantics::fold_semantics_pins" = "local: folds a (name, digest) table by the ecosystem's identifier procedure; it reads no Law-bearing value of another producer"
+"fn::vc::iso8601_utc" = "local: formats UNIX seconds as an ISO 8601 UTC date string for a VC document; no Law-bearing value crosses it"
+"reexport::ed25519_dalek::PUBLIC_KEY_LENGTH" = "local: a usize length of ed25519-dalek's (RFC 8032's fixed sizes), re-exported; no value crosses it"
+"reexport::ed25519_dalek::SECRET_KEY_LENGTH" = "local: a usize length of ed25519-dalek's (RFC 8032's fixed sizes), re-exported; no value crosses it"
+"reexport::ed25519_dalek::SIGNATURE_LENGTH" = "local: a usize length of ed25519-dalek's (RFC 8032's fixed sizes), re-exported; no value crosses it"
+"reexport::signature::PUBLIC_KEY_LENGTH" = "local: a usize length of ed25519-dalek's (RFC 8032's fixed sizes), re-exported; no value crosses it"

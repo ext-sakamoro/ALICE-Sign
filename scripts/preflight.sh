@@ -55,6 +55,10 @@ step "ci.yml / clippy: Identifier moves (tests, then against the release compare
 python3 scripts/test_id_move_check.py
 python3 scripts/id_move_check.py
 
+step "ci.yml / clippy: Public boundary (tests, then every item decided)"
+python3 scripts/test_api_boundary.py
+python3 scripts/api_boundary.py
+
 step "ci.yml / no_std: Build and clippy (thumbv7em-none-eabihf)"
 grep -q '^thumbv7em-none-eabihf$' <<<"$(rustup target list --installed)" || rustup target add thumbv7em-none-eabihf
 cargo build --lib --target thumbv7em-none-eabihf
@@ -145,7 +149,7 @@ RUSTDOCFLAGS="-Dwarnings" cargo doc --no-deps --all-features
 step "ci.yml / test-public-siblings: Test (lib, integration, doctests)"
 (
   set -o pipefail
-  MIN_PASSED=58
+  MIN_PASSED=63
   log="$(mktemp)"
   cargo test --all-features 2>&1 | tee "${log}"
   passed=$(grep -E '^test result: ' "${log}" | awk '{s += $4} END {print s + 0}')

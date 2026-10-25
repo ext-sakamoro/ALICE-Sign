@@ -140,6 +140,13 @@ jobs:
         run: python3 scripts/test_id_move_check.py
       - name: Identifier moves (against the release compared with)
         run: python3 scripts/id_move_check.py
+      # ALICE-Law G7 / G8: every public item that carries bytes, text or a reader (and every
+      # re-export) has a decision in scripts/api_boundary.toml, read from the rustdoc JSON with
+      # every feature (scripts/api_boundary.py, shared with the other ALICE crates)
+      - name: Public boundary (tests)
+        run: python3 scripts/test_api_boundary.py
+      - name: Public boundary (every item decided)
+        run: python3 scripts/api_boundary.py
 
   no_std:
     name: no_std (bare-metal thumbv7em)
@@ -237,7 +244,7 @@ jobs:
     env:
       # the passed-test count of the feature set below at the commit that set it;
       # fewer passed tests (a removed or skipped test, or none at all) is a failure
-      MIN_PASSED: "58"
+      MIN_PASSED: "63"
     steps:
       # cargo reads the manifest of every path dependency, optional ones included, so
       # each sibling is checked out next to this repository at a fixed commit with the

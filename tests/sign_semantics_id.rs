@@ -147,8 +147,10 @@ fn the_verdict_scenario_separates_verify_from_verify_strict() {
 #[test]
 fn the_documented_value_is_the_constant_and_no_previous_identifier_is_listed() {
     let doc = include_str!("../src/semantics.rs");
+    // a whole line of the doc, whatever the checkout's line endings (a Windows checkout may be CRLF)
+    let want = format!("//! {}", hex(&SIGN_SEMANTICS_ID));
     assert!(
-        doc.contains(&format!("//! {}\n", hex(&SIGN_SEMANTICS_ID))),
+        doc.lines().any(|l| l.trim_end() == want),
         "the hex form in the module doc"
     );
     assert!(PREVIOUS_SIGN_SEMANTICS_IDS.is_empty());
