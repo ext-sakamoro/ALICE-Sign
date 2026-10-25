@@ -27,6 +27,8 @@
 
 extern crate alloc;
 
+#[cfg(feature = "cred")]
+pub mod cred;
 pub mod error;
 pub mod hash;
 pub mod mac;
@@ -37,6 +39,10 @@ pub mod timestamp;
 #[cfg(feature = "vc")]
 pub mod vc;
 
+#[cfg(feature = "cred")]
+pub use cred::{
+    CredError, KeyId, NoRevocations, RevokedSet, SignedCredential, ValidityWindow, KEY_ID_LENGTH,
+};
 pub use error::HexError;
 pub use hash::{hash_data, Hash};
 pub use mac::{ct_eq, hmac_sha256, verify_hmac_sha256, HmacSha256, HMAC_SHA256_LENGTH};
