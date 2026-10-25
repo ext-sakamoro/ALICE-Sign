@@ -63,7 +63,21 @@ disallowed-methods = [
     { path = "std::time::SystemTime::elapsed", reason = "reads the wall clock the same as SystemTime::now; duration_since on an already-held value is fine, this reads the clock again" },
     { path = "std::time::SystemTime::now", reason = "the wall clock makes results depend on timing; pass time in or use a step count" },
     { path = "std::collections::hash_map::RandomState::new", reason = "seeds from OS randomness and would make HashMap iteration order non-deterministic" },
+    # ALICE-Law G2: std's float max / min may return either zero of an equal pair (it
+    # differs by target and optimisation) and clamp passes a NaN through with its
+    # payload. src/ has no float at all; a new max / min / clamp must go through a Law
+    # helper (alice-det-math's max / min / clamp).
+    { path = "f32::max", reason = "either zero of an equal pair may be returned, differing by target; use a Law helper (alice-det-math)" },
+    { path = "f32::min", reason = "either zero of an equal pair may be returned, differing by target; use a Law helper (alice-det-math)" },
+    { path = "f32::clamp", reason = "passes a NaN through with its payload and panics on inverted bounds; use a Law helper (alice-det-math)" },
+    { path = "f64::max", reason = "either zero of an equal pair may be returned, differing by target; use a Law helper (alice-det-math)" },
+    { path = "f64::min", reason = "either zero of an equal pair may be returned, differing by target; use a Law helper (alice-det-math)" },
+    { path = "f64::clamp", reason = "passes a NaN through with its payload and panics on inverted bounds; use a Law helper (alice-det-math)" },
 ]
 disallowed-types = [
     { path = "std::collections::hash_map::RandomState", reason = "seeds from OS randomness and would make HashMap iteration order non-deterministic; see disallowed-methods for RandomState::new" },
+    # ALICE-Law G13: no output of this crate may depend on hash iteration order; the
+    # crate has no hash map or set, and a new one must be a BTreeMap / BTreeSet.
+    { path = "std::collections::HashMap", reason = "iteration order depends on the per-instance random seed; use BTreeMap" },
+    { path = "std::collections::HashSet", reason = "iteration order depends on the per-instance random seed; use BTreeSet" },
 ]

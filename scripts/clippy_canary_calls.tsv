@@ -64,4 +64,12 @@ disallowed-methods	std::time::Instant::elapsed	let _ = std::time::Instant::elaps
 disallowed-methods	std::time::SystemTime::elapsed	let _ = std::time::SystemTime::elapsed;
 disallowed-methods	std::time::SystemTime::now	let _ = std::time::SystemTime::now;
 disallowed-methods	std::collections::hash_map::RandomState::new	let _ = std::collections::hash_map::RandomState::new;
+disallowed-methods	f32::max	let _ = f32::max;
+disallowed-methods	f32::min	let _ = f32::min;
+disallowed-methods	f32::clamp	let _ = f32::clamp;
+disallowed-methods	f64::max	let _ = f64::max;
+disallowed-methods	f64::min	let _ = f64::min;
+disallowed-methods	f64::clamp	let _ = f64::clamp;
 disallowed-types	std::collections::hash_map::RandomState	#[allow(unused_imports)] use std::collections::hash_map::RandomState as CanaryType;
+disallowed-types	std::collections::HashMap	#[allow(unused_imports)] use std::collections::HashMap as CanaryType;
+disallowed-types	std::collections::HashSet	#[allow(unused_imports)] use std::collections::HashSet as CanaryType;

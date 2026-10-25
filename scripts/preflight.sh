@@ -74,6 +74,17 @@ python3 scripts/build_flags_check.py -- cargo check --release --lib
 python3 scripts/build_flags_check.py -- cargo check --release --lib --features rand
 python3 scripts/build_flags_check.py -- cargo check --release --lib --no-default-features
 
+step "ci.yml / float-environment: No negated fma result (syntax tree, tests then check)"
+cargo fmt --manifest-path tools/no-outer-fneg-of-fma/Cargo.toml -- --check
+cargo test --quiet --locked --manifest-path tools/no-outer-fneg-of-fma/Cargo.toml
+cargo run --quiet --locked --release --manifest-path tools/no-outer-fneg-of-fma/Cargo.toml -- --root .
+python3 scripts/test_changed_paths.py
+python3 scripts/changed_paths.py sync
+
+step "g3-ir.yml: probe tests and no negated fma result in the release IR (this host's target)"
+python3 scripts/test_fneg_fma_ir_check.py
+python3 scripts/fneg_fma_ir_check.py --package alice-sign --all-features --findings-only
+
 step "public-text.yml: Public text (ALICE-Law checker at the pin)"
 python3 scripts/test_public_text.py
 scripts/public_text.sh
