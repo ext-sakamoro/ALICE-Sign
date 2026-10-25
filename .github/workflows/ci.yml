@@ -147,6 +147,28 @@ jobs:
         run: python3 scripts/test_api_boundary.py
       - name: Public boundary (every item decided)
         run: python3 scripts/api_boundary.py
+      # ALICE-Law G11 (c): the files shared with the other crates are the bytes ALICE-Law's table records
+      # (table and checker fetched at .github/shared-files-pin, both SHA-256 pinned); a difference, an
+      # unlisted shared path or nothing compared fails
+      - name: Shared files equal ALICE-Law's table
+        shell: bash
+        run: |
+          python3 scripts/test_shared_files.py
+          scripts/shared_files.sh
+      # ALICE-Law G11: every pass gate has a row in conformance/g11.toml naming its checker, canary and
+      # compared-nothing test (ALICE-Law's checker at .github/g11-table-pin)
+      - name: G11 table matches the declared gates
+        shell: bash
+        run: scripts/g11_table.sh
+      # ALICE-Law G11 self-check: the table, its rows, the shared copies and the manifest, from an ALICE-Law
+      # checkout at the revision .github/shared-files-pin names (the script refuses another revision)
+      - name: G11 self-check (ALICE-Law at the pinned revision)
+        shell: bash
+        run: |
+          rev=$(awk '$1 == "rev" { print $2 }' .github/shared-files-pin)
+          git clone --quiet https://github.com/ext-sakamoro/ALICE-Law "$RUNNER_TEMP/alice-law"
+          git -C "$RUNNER_TEMP/alice-law" checkout --quiet --detach "$rev"
+          python3 "$RUNNER_TEMP/alice-law/scripts/g11_self_check.py" --repo . --name ALICE-Sign
 
   no_std:
     name: no_std (bare-metal thumbv7em)

@@ -1,0 +1,35 @@
+# ALICE-Law G11: this repository's own rows of conformance/g11.toml (the rows of the checkers the ALICE
+# crates share are generated from ALICE-Law). ALICE-Law's scripts/g11_table_gen.py writes conformance/g11.toml
+# from both.
+#
+# The identifier suite is run by scripts/run_tests.sh, which fails a step when a named test binary ran no
+# test (or fewer than its minimum); its zero test is the compared-nothing test of each leg, and the canary
+# is a test of the binary the leg names.
+
+[[row]]
+gate = "G4"
+checker = ".github/workflows/ci.yml#- name: Semantics identifier (debug and release, every pin recomputed)>-- cargo test --test sign_semantics_id"
+canary = "tests/sign_semantics_id.rs::every_pin_is_recomputed_from_the_live_code_and_the_fold_is_the_identifier"
+zero = "scripts/test_run_tests.py::RunTests.test_a_named_file_that_ran_zero_fails"
+shared = ["scripts/run_tests.sh", "scripts/test_run_tests.py"]
+
+[[row]]
+gate = "G5"
+checker = ".github/workflows/ci.yml#- name: Semantics identifier (debug and release, every pin recomputed)>-- cargo test --release --test sign_semantics_id"
+canary = "tests/sign_semantics_id.rs::every_pin_is_recomputed_from_the_live_code_and_the_fold_is_the_identifier"
+zero = "scripts/test_run_tests.py::RunTests.test_a_named_file_that_ran_zero_fails"
+shared = ["scripts/run_tests.sh", "scripts/test_run_tests.py"]
+
+[[row]]
+gate = "G6"
+checker = ".github/workflows/ci.yml#- name: Semantics identifier (debug and release, every pin recomputed)>-- cargo test --test sign_semantics_id"
+canary = "tests/sign_semantics_id.rs::the_documented_value_is_the_constant_and_no_previous_identifier_is_listed"
+zero = "scripts/test_run_tests.py::RunTests.test_a_named_file_that_ran_zero_fails"
+shared = ["scripts/run_tests.sh", "scripts/test_run_tests.py"]
+
+[[row]]
+gate = "G10"
+checker = "scripts/clippy_canary.py"
+canary = "scripts/test_clippy_canary.py::Check.test_a_row_without_its_diagnostic_fails"
+zero = "scripts/test_clippy_canary.py::Check.test_no_planted_rows_compares_nothing"
+shared = ["scripts/clippy_canary.py", "scripts/test_clippy_canary.py"]

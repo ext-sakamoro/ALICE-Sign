@@ -59,6 +59,11 @@ step "ci.yml / clippy: Public boundary (tests, then every item decided)"
 python3 scripts/test_api_boundary.py
 python3 scripts/api_boundary.py
 
+step "ci.yml / clippy: Shared files equal ALICE-Law's table, G11 table"
+python3 scripts/test_shared_files.py
+scripts/shared_files.sh
+scripts/g11_table.sh
+
 step "ci.yml / no_std: Build and clippy (thumbv7em-none-eabihf)"
 grep -q '^thumbv7em-none-eabihf$' <<<"$(rustup target list --installed)" || rustup target add thumbv7em-none-eabihf
 cargo build --lib --target thumbv7em-none-eabihf
