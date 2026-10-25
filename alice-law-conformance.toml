@@ -11,9 +11,9 @@
 [G1]
 status = "pass"
 evidence = [
-    "clippy.toml disallowed-methods lines 9 to 60: every f32 and f64 method gates.toml marks banned (sin_cos at lines 11 and 37) plus powi, the pending default; the list is the f32 / f64 method part of ALICE-DB's",
-    ".github/workflows/ci.yml clippy job: default and rand, all targets (lines 88 and 90); no_std job, thumbv7em-none-eabihf (line 117); every run with -D warnings; scripts/preflight.sh lines 34, 38 and 53",
-    "scripts/clippy_canary.py with scripts/clippy_canary_calls.tsv, generated from clippy.toml by scripts/gen_clippy_canary_calls.py (58 planted, 0 skipped; f64::sin and f64::sin_cos are lines 36 and 38), scripts/test_clippy_canary.py and scripts/test_gen_clippy_canary_calls.py (all four byte-identical to ALICE-DB); .github/workflows/ci.yml lines 96 to 102, scripts/preflight.sh lines 41 to 48",
+    "clippy.toml disallowed-methods (`clippy.toml#disallowed-methods = [`: every f32 and f64 method gates.toml marks banned, sin_cos at `clippy.toml#path = \"f32::sin_cos\"` and `clippy.toml#path = \"f64::sin_cos\"`, plus powi, the pending default, `clippy.toml#path = \"f64::powi\"`); the list is the f32 / f64 method part of ALICE-DB's",
+    ".github/workflows/ci.yml clippy job: default and rand, all targets (`.github/workflows/ci.yml#name: Clippy (default, all targets)` and `.github/workflows/ci.yml#name: Clippy (rand, all targets)`); no_std job, thumbv7em-none-eabihf (`.github/workflows/ci.yml#name: Clippy (thumbv7em-none-eabihf)`); every run with -D warnings; scripts/preflight.sh runs the same (`scripts/preflight.sh#step \"ci.yml / clippy: Clippy (default, all targets)\"`, `scripts/preflight.sh#step \"ci.yml / clippy: Clippy (rand, all targets)\"` and `scripts/preflight.sh#step \"ci.yml / no_std: Build and clippy (thumbv7em-none-eabihf)\"`)",
+    "scripts/clippy_canary.py with scripts/clippy_canary_calls.tsv, generated from clippy.toml by scripts/gen_clippy_canary_calls.py (58 planted, 0 skipped; f64::sin and f64::sin_cos are the rows `scripts/clippy_canary_calls.tsv#let _ = f64::sin;` and `scripts/clippy_canary_calls.tsv#let _ = f64::sin_cos;`), scripts/test_clippy_canary.py and scripts/test_gen_clippy_canary_calls.py (all four byte-identical to ALICE-DB); `.github/workflows/ci.yml#name: Clippy canary data (generator tests)`, `.github/workflows/ci.yml#name: Clippy canary data (generated from clippy.toml, no drift)`, `.github/workflows/ci.yml#name: Clippy canary (tests)` and `.github/workflows/ci.yml#name: Clippy canary (every planted banned call is flagged)`; `scripts/preflight.sh#step \"ci.yml / clippy: Clippy canary data (generator tests, generated from clippy.toml, no drift)\"`, `scripts/preflight.sh#step \"ci.yml / clippy: Clippy canary (tests)\"` and `scripts/preflight.sh#step \"ci.yml / clippy: Clippy canary (every planted banned call is flagged)\"`",
     "Cargo.toml has no libm dependency, so no libm free function can be named",
 ]
 mutant = "measured 2026-10-17, each reverted: deleting the f64::sin entry from clippy.toml makes scripts/clippy_canary.py exit 1; adding `pub fn probe(x: f64) -> f64 { x.sin() }` to src/hash.rs makes the default clippy step fail with disallowed method f64::sin"
@@ -72,9 +72,9 @@ reference_repo = ""
 [G10]
 status = "pass"
 evidence = [
-    "src/lib.rs line 17: #![no_std] with no std feature, so the library cannot name a clock or an OS entropy source; KeyPair::generate (feature rand) takes the caller's CSPRNG as an argument",
-    "clippy.toml disallowed-methods lines 61 to 66 (Instant::now / ::elapsed, SystemTime::now / ::elapsed, RandomState::new) and disallowed-types line 68 (RandomState), linted with -D warnings over all targets (tests and examples build with std), planted by the canary (see G1)",
-    "tests/golden.rs: public keys and signatures for fixed seeds and messages, SHA-256 of fixed inputs, Merkle roots and proofs for 0 to 9 leaves, compared with values captured from the code the crate was moved from; run in debug and release on ubuntu, macOS and Windows (.github/workflows/ci.yml lines 61 and 62, scripts/preflight.sh lines 79 and 80)",
+    "src/lib.rs (`src/lib.rs##![no_std]`): #![no_std] with no std feature, so the library cannot name a clock or an OS entropy source; KeyPair::generate (feature rand) takes the caller's CSPRNG as an argument",
+    "clippy.toml disallowed-methods (`clippy.toml#path = \"std::time::Instant::now\"`, `clippy.toml#path = \"std::time::Instant::elapsed\"`, `clippy.toml#path = \"std::time::SystemTime::now\"`, `clippy.toml#path = \"std::time::SystemTime::elapsed\"`, `clippy.toml#path = \"std::collections::hash_map::RandomState::new\"`) and disallowed-types (`clippy.toml#path = \"std::collections::hash_map::RandomState\"`), linted with -D warnings over all targets (tests and examples build with std), planted by the canary (see G1)",
+    "tests/golden.rs: public keys and signatures for fixed seeds and messages, SHA-256 of fixed inputs, Merkle roots and proofs for 0 to 9 leaves, compared with values captured from the code the crate was moved from; run in debug and release on ubuntu, macOS and Windows (`.github/workflows/ci.yml#name: Golden byte layouts (debug and release)`, `scripts/preflight.sh#step \"ci.yml / float-environment: Golden byte layouts (debug and release)\"`)",
 ]
 mutant = "measured 2026-10-17, each reverted: `std::time::Instant::now()` added to a test makes the default clippy step fail with disallowed method std::time::Instant::now; a clock read added to src/hash.rs does not compile (no std in the library); swapping the two children in MerkleTree::build makes tests/golden.rs fail"
 since = ""
@@ -102,9 +102,9 @@ reference_repo = ""
 [G14]
 status = "pass"
 evidence = [
-    "scripts/build_config_guard.py with scripts/build_config_allowlist.toml and scripts/test_build_config_guard.py (static: no flag that changes floating-point results in any cargo config, manifest, build script, workflow or script), .github/workflows/ci.yml line 68, scripts/preflight.sh line 58",
-    "scripts/build_flags_check.py with scripts/test_build_flags_check.py (dynamic: the flags cargo really passes to rustc, default / rand / no default features), .github/workflows/ci.yml lines 73 to 75",
-    "tests/float_environment.rs run through scripts/run_tests.sh float_environment=2 in debug and release on ubuntu, macOS and Windows, .github/workflows/ci.yml lines 57 and 58",
+    "scripts/build_config_guard.py with scripts/build_config_allowlist.toml and scripts/test_build_config_guard.py (static: no flag that changes floating-point results in any cargo config, manifest, build script, workflow or script), `.github/workflows/ci.yml#\"$PY\" scripts/build_config_guard.py`, `scripts/preflight.sh#python3 scripts/build_config_guard.py`",
+    "scripts/build_flags_check.py with scripts/test_build_flags_check.py (dynamic: the flags cargo really passes to rustc, default / rand / no default features), `.github/workflows/ci.yml#name: Effective rustc flags (default, rand, no default features)`, `scripts/preflight.sh#step \"ci.yml / float-environment: Effective rustc flags (default, rand, no default features)\"`",
+    "tests/float_environment.rs run through scripts/run_tests.sh float_environment=2 in debug and release on ubuntu, macOS and Windows, `.github/workflows/ci.yml#name: Float environment (debug and release)`, `scripts/preflight.sh#step \"ci.yml / float-environment: Float environment (debug and release)\"`",
 ]
 mutant = "measured 2026-10-17, reverted: a .cargo/config.toml with rustflags target-cpu=native makes scripts/build_config_guard.py report it"
 since = ""
