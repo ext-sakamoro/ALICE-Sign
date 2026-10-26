@@ -289,7 +289,7 @@ fn signing_message(key_id: &KeyId, payload: &Hash, window: &ValidityWindow) -> V
 pub const CRED_SEMANTICS_PINS: &[(&str, [u8; 32])] = &[
     (
         "golden claims disclosure",
-        hex32("9efc2f9f570c9a5b6319f4699823629456ee598c7473cc69e2590b2338604b29"),
+        hex32("67b83551a775b6b7522aa83d2b0ab2991d4149c2bcc9ce9b6d06c6ed780db9aa"),
     ),
     (
         "golden claims leaf",
@@ -349,7 +349,7 @@ use crate::semantics::hex32;
 /// no det-math row. Pinned by `golden_semantics_id`, which recomputes every pin
 /// from the live code.
 pub const SEMANTICS_ID: [u8; 32] =
-    hex32("e45dc92bc0049da2891408d5b5ee6fc36edd3dc9ed182e811010b195ed21a9e1");
+    hex32("fd24f0f073ce6f52f47048591921be012807da7234e16ca0f35a25057100c051");
 
 /// Earlier values of [`SEMANTICS_ID`] whose stamped data this build still reads.
 ///
@@ -687,6 +687,7 @@ mod tests {
             Err(claims::ClaimError::NotCovered) => 0x83,
             Err(claims::ClaimError::BadIndex) => 0x84,
             Err(claims::ClaimError::BadProof) => 0x85,
+            Err(claims::ClaimError::NothingShown) => 0x86,
         };
         let payload3 = set.payload();
         let claims_disclosure = hash_data(&[

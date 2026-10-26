@@ -2,7 +2,7 @@
 //!
 //! A [`ClaimSet`] commits to a list of named claims: each claim is a leaf (a domain-separated
 //! SHA-256 over its salt, name and value), the leaves in name order form a
-//! [`MerkleTree`](crate::merkle::MerkleTree), and the payload is a domain-separated SHA-256 over
+//! [`MerkleTree`], and the payload is a domain-separated SHA-256 over
 //! the number of claims and the tree's root. That payload is what a
 //! [`SignedCredential`](super::SignedCredential) signs.
 //!
@@ -12,7 +12,13 @@
 //! still covers what is shown. A claim that is not shown is present in a disclosure only as a
 //! sibling hash in a proof; its salt is what keeps a guessable value (a birth year, a yes / no)
 //! from being found by hashing candidates, so every salt must come from a cryptographic random
-//! source and never be reused.
+//! source and never be reused ([`Claim::with_random_salt`] under the `rand` feature).
+//!
+//! What a disclosure still reveals: the number of claims (`count`) and where each shown claim
+//! sorts by name (its index), which says something about the hidden names; and, since the shown
+//! leaves and the sibling hashes are the same in every presentation of one credential, that two
+//! presentations come from the same credential. A verifier that must not link presentations
+//! needs a fresh credential (and fresh salts) per verifier.
 //!
 //! The merkle tree repeats an odd level's last hash and hashes leaves and inner nodes alike
 //! (see [`crate::merkle`]). Both are closed here: the payload commits to the number of claims,
@@ -70,6 +76,9 @@ pub enum ClaimError {
     BadIndex,
     /// A proof is not of the tree's depth, or its steps do not follow its claim's position.
     BadProof,
+    /// No claim is shown of a set that has claims: there is nothing to check against the
+    /// payload (only the empty set's disclosure can show nothing).
+    NothingShown,
 }
 
 impl fmt::Display for ClaimError {
@@ -80,6 +89,7 @@ impl fmt::Display for ClaimError {
             Self::NotCovered => f.write_str("disclosure is not covered by the signed payload"),
             Self::BadIndex => f.write_str("disclosed claim positions are out of range or repeated"),
             Self::BadProof => f.write_str("inclusion proof does not match its claim's position"),
+            Self::NothingShown => f.write_str("disclosure shows no claim of a non-empty set"),
         }
     }
 }
@@ -105,6 +115,18 @@ impl Claim {
             value: value.into(),
             salt,
         }
+    }
+
+    /// A claim of `name` and `value` under a fresh salt drawn from `rng` (feature `rand`).
+    #[cfg(feature = "rand")]
+    pub fn with_random_salt<R: rand_core::CryptoRng + rand_core::RngCore>(
+        name: impl Into<String>,
+        value: impl Into<String>,
+        rng: &mut R,
+    ) -> Self {
+        let mut salt = [0u8; SALT_LENGTH];
+        rng.fill_bytes(&mut salt);
+        Self::new(name, value, salt)
     }
 
     /// The leaf: SHA-256 of
@@ -254,8 +276,9 @@ impl Disclosure {
     ///
     /// [`ClaimError::BadIndex`] for a position outside the set or not strictly increasing,
     /// [`ClaimError::BadProof`] for a proof of another depth or with steps that do not follow
-    /// its position, and [`ClaimError::NotCovered`] when the claims, the proofs and the number
-    /// of claims do not hash to `payload`.
+    /// its position, [`ClaimError::NotCovered`] when the claims, the proofs and the number
+    /// of claims do not hash to `payload`, and [`ClaimError::NothingShown`] when no claim is
+    /// shown of a non-empty set.
     pub fn verify(&self, payload: &Hash) -> Result<Vec<&Claim>, ClaimError> {
         let want_depth = depth(self.count);
         let mut root: Option<Hash> = None;
@@ -282,9 +305,13 @@ impl Disclosure {
                 Some(_) => {}
             }
         }
-        // nothing shown: no claim to recompute the root from, so only the empty set's (zero)
-        // root can match its payload
-        let root = root.unwrap_or_else(Hash::zero);
+        // nothing shown: no claim to recompute the root from; only the empty set (zero root)
+        // can be checked against its payload
+        let root = match root {
+            Some(r) => r,
+            None if self.count == 0 => Hash::zero(),
+            None => return Err(ClaimError::NothingShown),
+        };
         if payload_of(self.count, &root) != *payload {
             return Err(ClaimError::NotCovered);
         }
@@ -394,7 +421,7 @@ mod tests {
             let d = set.disclose(&chosen).expect("committed names");
             if chosen.is_empty() {
                 // nothing to recompute the root from: a non-empty set cannot be checked
-                assert_eq!(d.verify(&payload), Err(ClaimError::NotCovered));
+                assert_eq!(d.verify(&payload), Err(ClaimError::NothingShown));
                 continue;
             }
             let shown: Vec<&str> = d
@@ -493,6 +520,38 @@ mod tests {
         let mut moved = set.disclose(&["name"]).expect("committed");
         moved.items[0].index = 0;
         assert_eq!(moved.verify(&payload), Err(ClaimError::BadProof));
+    }
+
+    // a counting source stands in for a CSPRNG: each claim takes its own 32 bytes from it
+    #[cfg(feature = "rand")]
+    #[test]
+    fn a_random_salt_is_drawn_fresh_for_each_claim() {
+        struct Counting(u8);
+        impl rand_core::RngCore for Counting {
+            fn next_u32(&mut self) -> u32 {
+                rand_core::impls::next_u32_via_fill(self)
+            }
+            fn next_u64(&mut self) -> u64 {
+                rand_core::impls::next_u64_via_fill(self)
+            }
+            fn fill_bytes(&mut self, dest: &mut [u8]) {
+                for b in dest {
+                    self.0 = self.0.wrapping_add(1);
+                    *b = self.0;
+                }
+            }
+            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
+                self.fill_bytes(dest);
+                Ok(())
+            }
+        }
+        impl rand_core::CryptoRng for Counting {}
+        let mut rng = Counting(0);
+        let a = Claim::with_random_salt("a", "1", &mut rng);
+        let b = Claim::with_random_salt("b", "1", &mut rng);
+        assert_eq!(a.salt, core::array::from_fn(|i| i as u8 + 1));
+        assert_eq!(b.salt, core::array::from_fn(|i| i as u8 + 33));
+        assert_eq!((a.name.as_str(), a.value.as_str()), ("a", "1"));
     }
 
     #[test]
