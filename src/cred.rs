@@ -29,6 +29,8 @@
 use alloc::vec::Vec;
 use core::fmt;
 
+pub mod claims;
+
 use crate::hash::{hash_data, Hash};
 use crate::signature::{KeyPair, PublicKey, Signature};
 
@@ -280,10 +282,27 @@ fn signing_message(key_id: &KeyId, payload: &Hash, window: &ValidityWindow) -> V
 /// The behavioural goldens [`SEMANTICS_ID`] folds: each `(name, digest)` pins a
 /// SHA-256 of something the crate actually computes — the signature, the signed
 /// message, the window-edge verdicts, the revocation verdict, the refusal of a
-/// credential of another cred identifier, the small-order refusal — plus the context and version tags. A change in behaviour moves a
+/// credential of another cred identifier, the small-order refusal, the [`claims`] committed under a
+/// payload (a leaf, a set's payload, the verdicts of a disclosure) — plus the tags. A change in behaviour moves a
 /// digest and therefore the id. `golden_semantics_id` recomputes every digest
 /// from the live code, never from this copied hex.
 pub const CRED_SEMANTICS_PINS: &[(&str, [u8; 32])] = &[
+    (
+        "golden claims disclosure",
+        hex32("9efc2f9f570c9a5b6319f4699823629456ee598c7473cc69e2590b2338604b29"),
+    ),
+    (
+        "golden claims leaf",
+        hex32("1b7f71783b4af55d704009c201fddd171e5ded9f3ea69c49b494be06750ef154"),
+    ),
+    (
+        "golden claims payload",
+        hex32("9afdea3e01ee903ff0e59785455ace1d77be11f7ccdc4fbb165a0a3723beb63e"),
+    ),
+    (
+        "tag claims",
+        hex32("5b3d3dfac4846a29b66922f09c08b6a151e8d511527adfe3483d62bc5c75316b"),
+    ),
     (
         "golden signature",
         hex32("4a88229368123eadd9a5bf20800f61d8ca116fb7367c5dfaf1225a79dbd65374"),
@@ -330,10 +349,15 @@ use crate::semantics::hex32;
 /// no det-math row. Pinned by `golden_semantics_id`, which recomputes every pin
 /// from the live code.
 pub const SEMANTICS_ID: [u8; 32] =
-    hex32("62fb12876c3c3c52b9bf31946d01aaa6559406333bf5d31b20cac14a4f93d512");
+    hex32("e45dc92bc0049da2891408d5b5ee6fc36edd3dc9ed182e811010b195ed21a9e1");
 
 /// Earlier values of [`SEMANTICS_ID`] whose stamped data this build still reads.
-pub const PREVIOUS_SEMANTICS_IDS: &[[u8; 32]] = &[];
+///
+/// `62fb1287…` is the identifier before [`claims`] was folded in: a credential's signed message,
+/// window and verdicts are unchanged by it, so a credential stamped with it verifies the same way.
+pub const PREVIOUS_SEMANTICS_IDS: &[[u8; 32]] = &[hex32(
+    "62fb12876c3c3c52b9bf31946d01aaa6559406333bf5d31b20cac14a4f93d512",
+)];
 
 /// The result of [`check_semantics`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -593,7 +617,7 @@ mod tests {
 
     // recompute each CRED_SEMANTICS_PINS digest from the LIVE code, so a change
     // in behaviour (signature, layout, a window edge, a verdict) moves a digest
-    fn live_semantics_pins() -> [(&'static str, [u8; 32]); 8] {
+    fn live_semantics_pins() -> [(&'static str, [u8; 32]); 12] {
         let kp = KeyPair::from_seed([0u8; 32]);
         let pk = kp.public();
         let payload = hash_data(b"grant:read#42");
@@ -641,7 +665,49 @@ mod tests {
         ])
         .0;
 
+        // claims under the payload: a leaf, the payload of a 3-claim set (odd level) and the
+        // verdicts of a disclosure shown, changed, moved and empty
+        let set = claims::ClaimSet::new(alloc::vec![
+            claims::Claim::new("age_over_18", "true", [1u8; 32]),
+            claims::Claim::new("name", "Alice", [2u8; 32]),
+            claims::Claim::new("nationality", "JP", [3u8; 32]),
+        ])
+        .expect("distinct names");
+        let claims_leaf = hash_data(&claims::leaf_message(&set.claims()[0])).0;
+        let claims_payload = hash_data(&set.payload().0).0;
+        let shown = set.disclose(&["name"]).expect("committed");
+        let mut changed = shown.clone();
+        changed.items[0].claim.value = alloc::string::String::from("Mallory");
+        let mut moved = shown.clone();
+        moved.items[0].index = 0;
+        let ccode = |r: Result<Vec<&claims::Claim>, claims::ClaimError>| match r {
+            Ok(v) => u8::try_from(v.len()).expect("few"),
+            Err(claims::ClaimError::DuplicateName(_)) => 0x81,
+            Err(claims::ClaimError::UnknownName(_)) => 0x82,
+            Err(claims::ClaimError::NotCovered) => 0x83,
+            Err(claims::ClaimError::BadIndex) => 0x84,
+            Err(claims::ClaimError::BadProof) => 0x85,
+        };
+        let payload3 = set.payload();
+        let claims_disclosure = hash_data(&[
+            ccode(shown.verify(&payload3)),
+            ccode(changed.verify(&payload3)),
+            ccode(moved.verify(&payload3)),
+            ccode(set.disclose(&[]).expect("none").verify(&payload3)),
+        ])
+        .0;
+        let tags = [
+            claims::LEAF_CONTEXT,
+            claims::PAYLOAD_CONTEXT,
+            &[claims::CLAIMS_VERSION],
+        ]
+        .concat();
+
         [
+            ("golden claims disclosure", claims_disclosure),
+            ("golden claims leaf", claims_leaf),
+            ("golden claims payload", claims_payload),
+            ("tag claims", hash_data(&tags).0),
             ("golden signature", signature),
             ("golden signing_message_layout", layout),
             ("golden window_edges", window_edges),
@@ -672,6 +738,25 @@ mod tests {
     fn check_semantics_classifies_current_and_unknown() {
         assert_eq!(check_semantics(&SEMANTICS_ID), SemanticsCheck::Current);
         assert_eq!(check_semantics(&[0u8; 32]), SemanticsCheck::Mismatch);
+    }
+
+    // a credential stamped before claims were folded into the identifier verifies unchanged:
+    // its signed message, window and verdicts did not move
+    #[test]
+    fn a_credential_of_the_previous_identifier_still_verifies() {
+        let kp = signer();
+        let payload = hash_data(b"grant:read#42");
+        let mut cred = SignedCredential::sign(&kp, payload, ValidityWindow::new(1000, 2000));
+        cred.semantics_id =
+            hex::<32>("62fb12876c3c3c52b9bf31946d01aaa6559406333bf5d31b20cac14a4f93d512");
+        assert_eq!(
+            check_semantics(&cred.semantics_id),
+            SemanticsCheck::VerifiedPrevious
+        );
+        assert_eq!(
+            cred.verify_at(&kp.public(), 1500, &NoRevocations),
+            Ok(&payload)
+        );
     }
 
     // ALICE-Law G7: a credential issued under another cred identifier is refused as such,
