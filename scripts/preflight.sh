@@ -64,6 +64,17 @@ python3 scripts/test_shared_files.py
 scripts/shared_files.sh
 scripts/g11_table.sh
 
+step "ci.yml / float-environment: ALICE-Law G11 self-check (the four G11 checks at the pinned revision)"
+(
+  set -euo pipefail
+  rev=$(awk '$1 == "rev" { print $2 }' .github/shared-files-pin)
+  law=$(mktemp -d)
+  trap 'rm -rf "$law"' EXIT
+  git -c core.autocrlf=false clone --quiet --filter=blob:none https://github.com/ext-sakamoro/ALICE-Law.git "$law/alice-law"
+  git -C "$law/alice-law" checkout --quiet --detach "$rev"
+  python3 "$law/alice-law/scripts/g11_self_check.py" --repo . --name ALICE-Sign
+)
+
 step "ci.yml / no_std: Build and clippy (thumbv7em-none-eabihf)"
 grep -q '^thumbv7em-none-eabihf$' <<<"$(rustup target list --installed)" || rustup target add thumbv7em-none-eabihf
 cargo build --lib --target thumbv7em-none-eabihf

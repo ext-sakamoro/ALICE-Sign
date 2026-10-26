@@ -6,6 +6,7 @@ All notable changes to alice-sign are documented here.
 
 ### Changed
 
+- CI (ALICE-Law G11): `.github/shared-files-pin` と `.github/g11-table-pin` を ALICE-Law 9cb423c9 に上げ、ALICE-Law の `scripts/g11_self_check.py` を clippy job (ubuntu だけ) から float-environment job (ubuntu / macOS / Windows) に移して preflight でも走らせる 共有の写しの bytes は同じ
 - **Breaking:** cred の `SEMANTICS_ID` は `62fb12876c3c3c52b9bf31946d01aaa6559406333bf5d31b20cac14a4f93d512` から `fd24f0f073ce6f52f47048591921be012807da7234e16ca0f35a25057100c051` に動く (`CRED_SEMANTICS_PINS` に `cred::claims` の固定値 4 行を足した: leaf、3 件の集合の payload、開示の判定、tag) 署名対象・時刻窓・判定は変わらないので、旧い識別子を持つ credential は `PREVIOUS_SEMANTICS_IDS` で同じに検証される (試験 `a_credential_of_the_previous_identifier_still_verifies`) 新しい識別子を持つ credential は旧い build では `SemanticsMismatch` になる
 
 - CI (ALICE-Law G9 / G11): `scripts/id_move_check.py` と試験を ALICE-Law の表の新しい目標の bytes にし (版を動かさない識別子の移動を [Unreleased] の **Breaking:** の項目で受け付ける、cargo の出力の色を除いて数える)、`.github/shared-files-pin` と `.github/g11-table-pin` を ALICE-Law 0e8c14ec に上げた README の licence の節を所定の行にした

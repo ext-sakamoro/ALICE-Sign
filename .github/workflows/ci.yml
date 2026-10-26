@@ -100,6 +100,16 @@ jobs:
           PY=$(command -v python3 || command -v python)
           "$PY" scripts/test_changed_paths.py
           "$PY" scripts/changed_paths.py sync
+      # ALICE-Law G11 self-check: the table, its rows, the shared copies, own copies at their targets and the
+      # manifest, from an ALICE-Law checkout at the revision .github/shared-files-pin names, on every OS
+      - name: ALICE-Law G11 self-check (the four G11 checks at the pinned revision)
+        shell: bash
+        run: |
+          rev=$(awk '$1 == "rev" { print $2 }' .github/shared-files-pin)
+          git -c core.autocrlf=false clone --quiet --filter=blob:none https://github.com/ext-sakamoro/ALICE-Law.git "$RUNNER_TEMP/alice-law"
+          git -C "$RUNNER_TEMP/alice-law" checkout --quiet --detach "$rev"
+          PY=$(command -v python3 || command -v python)
+          "$PY" "$RUNNER_TEMP/alice-law/scripts/g11_self_check.py" --repo . --name ALICE-Sign
 
   clippy:
     name: Clippy
@@ -160,17 +170,6 @@ jobs:
       - name: G11 table matches the declared gates
         shell: bash
         run: scripts/g11_table.sh
-      # ALICE-Law G11 self-check: the table, its rows, the shared copies and the manifest, from an ALICE-Law
-      # checkout at the revision .github/shared-files-pin names (the script refuses another revision)
-      - name: G11 self-check (ALICE-Law at the pinned revision)
-        shell: bash
-        run: |
-          rev=$(awk '$1 == "rev" { print $2 }' .github/shared-files-pin)
-          # core.autocrlf=false: a Windows runner's git would check the table out with CRLF, and its
-          # SHA-256 would not be the pin's
-          git -c core.autocrlf=false clone --quiet https://github.com/ext-sakamoro/ALICE-Law "$RUNNER_TEMP/alice-law"
-          git -C "$RUNNER_TEMP/alice-law" checkout --quiet --detach "$rev"
-          python3 "$RUNNER_TEMP/alice-law/scripts/g11_self_check.py" --repo . --name ALICE-Sign
 
   no_std:
     name: no_std (bare-metal thumbv7em)
