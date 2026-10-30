@@ -52,7 +52,7 @@ step "ci.yml / clippy: Clippy canary (every planted banned call is flagged)"
 python3 scripts/clippy_canary.py
 
 step "ci.yml / clippy: Identifier moves (tests, then against the release compared with)"
-python3 scripts/test_id_move_check.py
+CARGO_TERM_COLOR=always python3 scripts/test_id_move_check.py
 python3 scripts/id_move_check.py
 
 step "ci.yml / clippy: Public boundary (tests, then every item decided)"
