@@ -51,6 +51,10 @@ python3 scripts/test_clippy_canary.py
 step "ci.yml / clippy: Clippy canary (every planted banned call is flagged)"
 python3 scripts/clippy_canary.py
 
+step "ci.yml / clippy: Upstream previous identifiers (test, then whole-list uses only)"
+python3 scripts/test_upstream_previous_ids_check.py
+python3 scripts/upstream_previous_ids_check.py
+
 step "ci.yml / clippy: Identifier moves (tests, then against the release compared with)"
 CARGO_TERM_COLOR=always python3 scripts/test_id_move_check.py
 python3 scripts/id_move_check.py
