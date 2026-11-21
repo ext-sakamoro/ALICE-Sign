@@ -5,6 +5,7 @@ All notable changes to alice-sign are documented here.
 ## [Unreleased]
 
 ### Changed
+- CI (ALICE-Law G11 (c)): この repository が持つ共有の写しのうち表で移行中の行 9 件を各 owner の main と同じ target の bytes にし、`.github/shared-files-pin` / `.github/g11-table-pin` / `.github/public-text-pin` を ALICE-Law 5e397e3 に上げた (移行中の行の写しがすべて target、指摘 0)
 - CI (ALICE-Law G9 / G11): 識別子の移動の検査器 (`scripts/id_move_check.py` と試験) を共有の新しい bytes にし、新しく足した associated const を受けるようにした 他の共有の file も ALICE-Law 40973a8a の表が計画した bytes にし、shared-files と G11 の表の pin を上げた
 
 - CI (ALICE-Law G11): `.github/shared-files-pin` と `.github/g11-table-pin` を ALICE-Law 9cb423c9 に上げ、ALICE-Law の `scripts/g11_self_check.py` を clippy job (ubuntu だけ) から float-environment job (ubuntu / macOS / Windows) に移して preflight でも走らせる 共有の写しの bytes は同じ
